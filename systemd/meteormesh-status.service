@@ -1,0 +1,14 @@
+[Unit]
+Description=MeteorMesh read-only local status and error check
+Documentation=https://github.com/comolokko45/meteormesh
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/meteormesh
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/meteormesh/tools/MeteorMesh-status-Hub09.py --data-dir /srv/meteor-data --strict
+Nice=10
+NoNewPrivileges=true
+ProtectSystem=strict
+UMask=0077
+

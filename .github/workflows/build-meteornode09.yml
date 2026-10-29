@@ -1,0 +1,48 @@
+name: MeteorNode 0.9 Remote Setup LAN Test APK
+on:
+  push:
+    branches: [meteornode-0.9-remote-setup-lan-test]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Restore frozen source ZIP
+        run: |
+          base64 --decode staging/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip.b64 > /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip
+          echo "2f79d82a5a845dcbc2e90145b9139fd02139c49463140c8fa664a81171bb06ba  /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip" | sha256sum --check
+          unzip -q /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip
+      - name: Install Android SDK 35
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Source contracts and Linux HTTP download tests
+        working-directory: MeteorNode-0.9-Remote-Setup-LAN-Test
+        run: |
+          python3 -m unittest discover -s . -p test_v09_source_contract.py -v
+          python3 -m unittest discover -s linux -p test_meteornode_http_pull.py -v
+          python3 -m unittest discover -s linux -p test_meteornode_pull.py -v
+      - name: Assemble separate debug APK
+        working-directory: MeteorNode-0.9-Remote-Setup-LAN-Test
+        run: gradle --no-daemon :app:assembleDebug
+      - name: APK SHA-256
+        working-directory: MeteorNode-0.9-Remote-Setup-LAN-Test
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeteorNode-0.9-Remote-Setup-LAN-Test-debug-apk
+          path: MeteorNode-0.9-Remote-Setup-LAN-Test/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

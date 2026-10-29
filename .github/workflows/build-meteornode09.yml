@@ -20,7 +20,7 @@ jobs:
       - name: Restore frozen source ZIP
         run: |
           base64 --decode staging/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip.b64 > /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip
-          echo "2f79d82a5a845dcbc2e90145b9139fd02139c49463140c8fa664a81171bb06ba  /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip" | sha256sum --check
+          echo "87d16c26f86cf02a3ab97166f429a193dbd410efa8b9000ad84b040544b88da4  /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip" | sha256sum --check
           unzip -q /tmp/MeteorNode-0.9-Remote-Setup-LAN-Test-source.zip
       - name: Install Android SDK 35
         run: |

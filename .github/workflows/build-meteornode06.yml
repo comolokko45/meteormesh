@@ -14,7 +14,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -24,7 +23,10 @@ jobs:
           echo "3e1e20c73c9de770cef8a0d6d873dabef1f84b15df923f357faab2e9e1791ff4  /tmp/MeteorNode-0.6-LAN-Test-source.zip" | sha256sum --check
           unzip -q /tmp/MeteorNode-0.6-LAN-Test-source.zip
       - name: Install Android SDK 35
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Source contracts and Linux HTTP download tests
         working-directory: MeteorNode-0.6-LAN-Test
         run: |

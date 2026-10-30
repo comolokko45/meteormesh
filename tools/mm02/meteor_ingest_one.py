@@ -16,7 +16,8 @@ import re
 import sqlite3
 from pathlib import Path
 
-from hub_workflow import enqueue_verified, queue_summary
+from hub_workflow import METDETPY_VERSION, queue_summary, utc_now
+import hashlib
 from meteormesh_hub import (DEVICE_ID, create_database, safely_prepare_folder,
                             store_verified_segment, verify_with_ffprobe)
 from meteormesh_pipeline import sha256_file
@@ -72,6 +73,30 @@ def exclusive_ingest_lock(root: Path):
         yield
 
 
+def enqueue_selected(db: sqlite3.Connection, *, device_id: str, segment: dict,
+                     config_sha: str) -> int:
+    """Queue ONLY this verified segment, not unrelated work from another session."""
+    if len(config_sha) != 64 or not re.fullmatch(r'[0-9a-f]{64}', config_sha):
+        raise ValueError('Invalid detector config SHA-256')
+    segment_id = segment['segment_id']
+    digest = segment['sha256'].lower()
+    verified = db.execute(
+        "SELECT 1 FROM segments WHERE device_id=? AND segment_id=? "
+        "AND sha256=? AND state='INGEST_VERIFIED'",
+        (device_id, segment_id, digest)).fetchone()
+    if verified is None:
+        raise RuntimeError('Video not verified; refusing enqueue')
+    material = f'DETECT:{device_id}:{segment_id}:{digest}:{METDETPY_VERSION}:{config_sha}'
+    unique_key = hashlib.sha256(material.encode()).hexdigest()
+    cursor = db.execute("""INSERT OR IGNORE INTO jobs
+       (unique_key, kind, device_id, segment_id, video_sha256, detector_version,
+        detector_config_sha256, state, created_utc)
+       VALUES (?, 'DETECT', ?, ?, ?, ?, ?, 'WAITING', ?)""",
+       (unique_key, device_id, segment_id, digest, METDETPY_VERSION, config_sha, utc_now()))
+    db.commit()
+    return cursor.rowcount
+
+
 def ingest_one(node: MeteorNode, *, root: Path, device_id: str,
                detector_config: Path, segment_id: str | None = None,
                minimum_bytes: int = MIN_VIDEO_BYTES) -> dict:
@@ -118,7 +143,8 @@ def ingest_one(node: MeteorNode, *, root: Path, device_id: str,
             ensure_production_root(root)
             store_verified_segment(db, device_id, segment, state, probe)
             ensure_production_root(root)
-            added = enqueue_verified(db, config_sha)
+            added = enqueue_selected(db, device_id=device_id,
+                                     segment=segment, config_sha=config_sha)
             return {
                 'status': 'VERIFIED_AND_QUEUED',
                 'device_id': device_id,

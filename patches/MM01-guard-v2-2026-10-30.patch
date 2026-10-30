@@ -1,2 +1,614 @@
 --- a/boundary_review.py
 +++ b/boundary_review.py
+@@ -18,6 +18,7 @@
+ import sys
+ import uuid
+ from pathlib import Path
++from storage_guard import ensure_if_production
+ 
+ from hub_workflow import METDETPY_VERSION, sha256_file, verify_metdet_repo
+ from meteormesh_hub import verify_with_ffprobe
+@@ -138,6 +139,7 @@
+         raise ValueError("Refusing to stitch non-adjacent estimated timestamps")
+     if outdir.is_symlink():
+         raise RuntimeError("Output directory must not be a symlink")
++    ensure_if_production(outdir)
+     outdir.mkdir(parents=True, exist_ok=True)
+     video = outdir / f"{pair['pair_id']}.mp4"
+     manifest = outdir / f"{pair['pair_id']}.manifest.json"
+@@ -235,6 +237,7 @@
+ def run_boundary_detector(manifest_file: Path, repo: Path, config: Path,
+                           *, command=subprocess.run) -> dict:
+     """Optional MetDetPy review pass; never promotes a match to science-grade."""
++    ensure_if_production(manifest_file)
+     if manifest_file.is_symlink():
+         raise RuntimeError("Unsafe review manifest")
+     meta = json.loads(manifest_file.read_text(encoding="utf-8"))
+@@ -303,6 +306,7 @@
+     if args.command != "plan" and not 1 <= args.limit <= 500:
+         raise ValueError("Limit must be between 1 and 500")
+     if args.command == "detect":
++        ensure_if_production(args.review_dir)
+         if args.review_dir.is_symlink():
+             raise RuntimeError("Review directory cannot be a symlink")
+         results = []
+@@ -319,6 +323,7 @@
+     with read_only_connection(dbpath) as db:
+         plan_data = plan_boundaries(db, args.data_dir, args.seconds)
+     if args.command == "plan":
++        ensure_if_production(args.output)
+         with args.output.open("x", encoding="utf-8") as output:
+             json.dump(plan_data, output, ensure_ascii=False, indent=2)
+             output.write("\n")
+--- a/event_package.py
++++ b/event_package.py
+@@ -14,6 +14,7 @@
+ import sqlite3
+ import sys
+ from pathlib import Path
++from storage_guard import ensure_if_production
+ 
+ from hub_workflow import sha256_file
+ from meteor_agent import read_only_connection
+@@ -188,6 +189,7 @@
+ def save_indexes(indexes: list[dict], output_dir: Path) -> list[str]:
+     if output_dir.is_symlink():
+         raise RuntimeError("Index output directory must not be a symlink")
++    ensure_if_production(output_dir)
+     output_dir.mkdir(parents=True, exist_ok=True)
+     # Preflight avoids partial output due to already-existing files.
+     paths = [output_dir / f"{event['package_id']}.index.json" for event in indexes]
+--- a/hub_workflow.py
++++ b/hub_workflow.py
+@@ -18,6 +18,7 @@
+ from pathlib import Path
+ 
+ from meteornode_pull import VALID_ID, MeteorNode
++from storage_guard import ensure_production_root
+ 
+ 
+ METDETPY_VERSION = "v2.6.1"
+@@ -162,6 +163,7 @@
+ 
+     metdet_repo = metdet_repo.resolve()
+     config = config.resolve(strict=True)
++    ensure_production_root(data_root)
+     data_root = data_root.resolve(strict=True)
+     if timeout_seconds < 60 or timeout_seconds >= DEFAULT_JOB_LEASE_SECONDS:
+         raise ValueError("Detector timeout must fit within the six-hour job lease")
+@@ -181,6 +183,7 @@
+     output_dir = data_root / "detector-results" / job["device_id"]
+     if output_dir.is_symlink():
+         raise RuntimeError("Unsafe detector results folder")
++    ensure_production_root(data_root)
+     output_dir.mkdir(parents=True, exist_ok=True)
+     final = output_dir / f"{job['segment_id']}_{job['config_sha256'][:10]}.json"
+     if final.is_symlink():
+@@ -212,8 +215,10 @@
+     # Put a complete parsed file in place; never rename an incomplete or invalid output.
+     if final.exists():
+         raise RuntimeError("Refusing result file overwrite")
++    ensure_production_root(data_root)
+     os.replace(pending, final)
+     result_sha = sha256_file(final)
++    ensure_production_root(data_root)
+     db.execute("""INSERT INTO detector_runs
+         (job_id, device_id, segment_id, input_sha256, detector_version,
+          detector_commit, config_sha256, result_path, result_sha256,
+--- a/meteor_agent_lite.py
++++ b/meteor_agent_lite.py
+@@ -18,6 +18,7 @@
+ import urllib.request
+ import uuid
+ from pathlib import Path
++from storage_guard import ensure_if_production
+ 
+ from meteor_agent_tools import ReadOnlyTools, tool_schemas
+ from meteor_knowledge import Knowledge, tokens
+@@ -81,6 +82,7 @@
+         if path.is_symlink():
+             raise ValueError("Agent memory symlink is not permitted")
+         self.path = path
++        ensure_if_production(self.path)
+         with sqlite3.connect(self.path, timeout=5) as db:
+             db.execute("""CREATE TABLE IF NOT EXISTS turns (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+@@ -104,6 +106,7 @@
+                 for role, val in (("user", question), ("assistant", answer))]
+ 
+     def remember(self, session: str, question: str, result: dict) -> None:
++        ensure_if_production(self.path)
+         with sqlite3.connect(self.path, timeout=5) as db:
+             db.execute("""INSERT INTO turns(session_id, question, answer, provider, tools_json)
+                         VALUES(?,?,?,?,?)""",
+--- a/meteor_lab.py
++++ b/meteor_lab.py
+@@ -19,6 +19,7 @@
+ import tempfile
+ import time
+ from pathlib import Path
++from storage_guard import ensure_if_production
+ 
+ from hub_workflow import METDETPY_VERSION, verify_metdet_repo
+ from meteormesh_hub import verify_with_ffprobe
+@@ -133,6 +134,7 @@
+     repo = repo.resolve(strict=True)
+     mask = mask.resolve(strict=True) if mask else None
+     output = output.absolute()
++    ensure_if_production(output)
+     _check_output(output)
+     manifest_path = output.with_name(output.name + ".audit.json")
+     _check_output(manifest_path)
+@@ -176,6 +178,7 @@
+ def sampled_frame(video: Path, output: Path, at_seconds: float = 30,
+                   run_command=subprocess.run) -> dict:
+     output = output.absolute()
++    ensure_if_production(output)
+     _check_output(output)
+     if output.suffix.lower() != ".jpg":
+         raise ValueError("Single-frame sample output must use .jpg")
+--- a/meteor_morning.py
++++ b/meteor_morning.py
+@@ -27,6 +27,7 @@
+ from meteor_health import summarize_health
+ from meteormesh_hub import process_device, read_device_config
+ from meteormesh_pipeline import database_for, sha256_file
++from storage_guard import ensure_production_root, ensure_if_production, prepare_root
+ 
+ 
+ def utc_now() -> str:
+@@ -36,7 +37,7 @@
+ def validate_root(folder: Path) -> None:
+     if folder.is_symlink():
+         raise RuntimeError("Data directory symlink is forbidden")
+-    folder.mkdir(parents=True, exist_ok=True)
++    prepare_root(folder)
+     if not folder.is_dir():
+         raise RuntimeError("Data directory must be a directory")
+ 
+@@ -44,6 +45,7 @@
+ @contextlib.contextmanager
+ def exclusive_run_lock(folder: Path):
+     """Protect against simultaneous timer and manual invocations, without deletion."""
++    ensure_production_root(folder)
+     lock = folder / ".meteor-morning.lock"
+     if lock.is_symlink() or (lock.exists() and not lock.is_file()):
+         raise RuntimeError("Unsafe morning lock path")
+@@ -61,6 +63,7 @@
+     folder = data_root / "morning-reports"
+     if folder.is_symlink():
+         raise RuntimeError("Report directory symlink is forbidden")
++    ensure_production_root(data_root)
+     folder.mkdir(parents=True, exist_ok=True)
+     return folder
+ 
+@@ -69,10 +72,12 @@
+     """Write a fresh, non-authoritative JSON report without replacing older runs."""
+     if "/" in name or "\\" in name or name.startswith(".") or not name.endswith(".json"):
+         raise ValueError("Unsafe report name")
++    ensure_if_production(folder)
+     final = folder / name
+     temporary = folder / ("." + name + ".pending")
+     if final.exists() or final.is_symlink() or temporary.exists() or temporary.is_symlink():
+         raise RuntimeError("Report already exists; refusing overwrite")
++    ensure_if_production(temporary)
+     with temporary.open("x", encoding="utf-8") as out:
+         json.dump(contents, out, indent=2, ensure_ascii=False)
+         out.write("\n")
+@@ -81,6 +86,7 @@
+     # Name has UTC microseconds plus random suffix; collisions are blocked above.
+     # Atomic no-clobber publication, even if a report with this name appears
+     # between our existence check and publication.
++    ensure_if_production(final)
+     os.link(temporary, final)
+     temporary.unlink()  # Only our own now-duplicated pending report.
+     return final
+--- a/meteor_review.py
++++ b/meteor_review.py
+@@ -17,6 +17,7 @@
+ from pathlib import Path
+ 
+ from meteornode_pull import VALID_ID
++from storage_guard import ensure_production_root
+ 
+ 
+ LABELS = ("meteor_possible", "aircraft_satellite", "artifact", "uncertain")
+@@ -59,6 +60,7 @@
+         raise ValueError("Unknown review label")
+     if not isinstance(note, str) or len(note) > 280 or "\x00" in note:
+         raise ValueError("Note too long or invalid")
++    ensure_production_root(data_dir)
+     source = source_from_report(event_report, candidate_id)
+     if data_dir.is_symlink() or not data_dir.is_dir():
+         raise ValueError("Existing non-symlink data directory required")
+@@ -70,6 +72,7 @@
+               "retention_permission": False, "scientific_confirmation": False}
+     data = (json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
+     # Append-only: correcting a label adds a new review, never erases history.
++    ensure_production_root(data_dir)
+     fd = os.open(log, os.O_CREAT | os.O_APPEND | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+     with os.fdopen(fd, "ab") as stream:
+         fcntl.flock(stream, fcntl.LOCK_EX)
+--- a/meteormesh_hub.py
++++ b/meteormesh_hub.py
+@@ -22,6 +22,7 @@
+ from typing import Callable
+ 
+ from meteornode_pull import MeteorNode, VALID_ID, normalize_fingerprint
++from storage_guard import ensure_production_root, prepare_root, ensure_if_production
+ 
+ 
+ DEVICE_ID = re.compile(r"^[a-zA-Z0-9_-]{3,60}$")
+@@ -90,6 +91,7 @@
+ 
+ 
+ def create_database(path: Path) -> sqlite3.Connection:
++    ensure_production_root(path.parent)
+     db = sqlite3.connect(path)
+     db.execute("""CREATE TABLE IF NOT EXISTS segments (
+         device_id TEXT NOT NULL, segment_id TEXT NOT NULL, sha256 TEXT NOT NULL,
+@@ -159,12 +161,13 @@
+ def safely_prepare_folder(root: Path, device_id: str) -> Path:
+     if root.is_symlink():
+         raise RuntimeError(f"Data root is a symlink: {root}")
+-    root.mkdir(parents=True, exist_ok=True)
++    prepare_root(root)
+     if not root.is_dir():
+         raise RuntimeError(f"Not a directory: {root}")
+     folder = root / device_id
+     if folder.is_symlink():
+         raise RuntimeError(f"Device folder is a symlink: {folder}")
++    ensure_production_root(root)
+     folder.mkdir(exist_ok=True)
+     return folder
+ 
+@@ -195,6 +198,7 @@
+             segment_id = segment["segment_id"]
+             if not isinstance(segment_id, str) or not VALID_ID.fullmatch(segment_id):
+                 raise ValueError("Invalid segment ID")
++            ensure_production_root(data_root)
+             if min_free_bytes:
+                 node.pull_one(segment, folder, min_free_bytes=min_free_bytes)
+             else:
+@@ -207,6 +211,7 @@
+             MeteorNode.verify_metadata(sidecar, segment_id,
+                                        int(segment["size_bytes"]), str(segment["sha256"]).lower())
+             state, probe = verify_with_ffprobe(folder / f"{segment_id}.mp4")
++            ensure_production_root(data_root)
+             store_verified_segment(db, name, segment, state, probe)
+             if state == "INGEST_VERIFIED":
+                 good += 1
+@@ -235,6 +240,7 @@
+     if args.command == "inventory":
+         content = json.dumps(get_inventory(), ensure_ascii=False, indent=2)
+         if args.output:
++            ensure_if_production(args.output)
+             with args.output.open("x", encoding="utf-8") as handle:
+                 handle.write(content + "\n")
+             print(f"Inventory saved: {args.output}")
+@@ -251,7 +257,7 @@
+         root = args.data_dir
+         if root.is_symlink():
+             raise RuntimeError("Data directory must not be a symlink")
+-        root.mkdir(parents=True, exist_ok=True)
++        prepare_root(root)
+         db = create_database(root / "meteorhub.sqlite3")
+     else:
+         root = Path(".")
+--- a/meteormesh_pipeline.py
++++ b/meteormesh_pipeline.py
+@@ -15,16 +15,18 @@
+ from hub_workflow import (claim_next, enqueue_verified, init_pipeline, mark_failed,
+                           queue_summary, reclaim_stale, retry_failed, run_one_detector)
+ from meteormesh_hub import create_database
++from storage_guard import ensure_production_root, ensure_if_production, prepare_root
+ 
+ 
+ def database_for(data_dir: Path, initialize: bool = False) -> sqlite3.Connection:
++    ensure_production_root(data_dir)
+     if data_dir.is_symlink():
+         raise ValueError("Data root must not be a symlink")
+     path = data_dir / "meteorhub.sqlite3"
+     if path.is_symlink():
+         raise ValueError("Database must not be a symlink")
+     if initialize:
+-        data_dir.mkdir(parents=True, exist_ok=True)
++        prepare_root(data_dir)
+         db = create_database(path)
+         init_pipeline(db)
+         return db
+@@ -81,6 +83,7 @@
+                 raise ValueError("Camera list must have distinct device IDs")
+             report_data = build_event_report(db, args.data_dir, devices, args.window_ms)
+             # x mode refuses to overwrite prior reviews or hand-edited annotations.
++            ensure_if_production(args.output)
+             with args.output.open("x", encoding="utf-8") as stream:
+                 json.dump(report_data, stream, ensure_ascii=False, indent=2)
+                 stream.write("\n")
+--- a/meteornode_pull.py
++++ b/meteornode_pull.py
+@@ -16,6 +16,7 @@
+ import shutil
+ import ssl
+ from pathlib import Path
++from storage_guard import ensure_destination
+ 
+ 
+ VALID_ID = re.compile(r"^[A-Za-z0-9_-]{3,100}$")
+@@ -101,6 +102,7 @@
+ 
+     def pull_one(self, segment: dict, destination: Path,
+                  min_free_bytes: int = 0) -> str:
++        ensure_destination(destination)
+         segment_id = segment["segment_id"]
+         if not VALID_ID.fullmatch(segment_id):
+             raise ValueError(f"Unsafe segment id: {segment_id!r}")
+@@ -158,6 +160,7 @@
+                     f"bytes {have}-{expected_size - 1}/{expected_size}"
+                 ):
+                     raise RuntimeError("Server returned an invalid resume offset")
++                ensure_destination(destination)
+                 with partial.open("ab" if have else "wb") as output:
+                     while True:
+                         chunk = response.read(1024 * 1024)
+@@ -176,9 +179,11 @@
+             raise RuntimeError(f"SHA-256 mismatch: {segment_id}; original kept on phone")
+         # Publish the sidecar first. A crash between MP4 rename and DB commit can
+         # always be reconciled on the next run from the verified listing.
++        ensure_destination(destination)
+         self.ensure_metadata(segment, metadata, temp_meta, expected_size, expected_hash)
+         if video.exists():
+             raise RuntimeError(f"Video appeared during transfer; refusing overwrite: {video}")
++        ensure_destination(destination)
+         os.replace(partial, video)
+         return "downloaded + SHA256 verified"
+ 
+@@ -211,6 +216,7 @@
+         for item in response["segments"]:
+             print(f"{item['segment_id']}  {item['size_bytes']} bytes")
+         return
++    ensure_destination(args.destination)
+     args.destination.mkdir(parents=True, exist_ok=True)
+     for item in response["segments"]:
+         try:
+--- a/storage_guard.py
++++ b/storage_guard.py
+@@ -0,0 +1,116 @@
++"""MM-01: fail-closed protection for the production video/data HDD.
++
++Production root is fixed. Isolated tests may use a fresh /tmp directory only
++with METEORMESH_ISOLATED_TEST_ROOT=isolated-only set explicitly. This flag must
++NEVER be set in any installed systemd service, production shell, or agent.
++"""
++from __future__ import annotations
++
++import os
++import subprocess
++from pathlib import Path
++
++ROOT = Path("/srv/meteor-data")
++UUID = "444a8a6d-090a-456c-8a9d-d99665c32574"
++TEST_FLAG = "METEORMESH_ISOLATED_TEST_ROOT"
++
++
++def _absolute(path: Path) -> Path:
++    return Path(os.path.abspath(os.fspath(path)))
++
++
++def _test_path(root: Path) -> bool:
++    if os.environ.get(TEST_FLAG) != "isolated-only":
++        return False
++    # Exclude /tmp itself; a test may write only under a separate directory.
++    try:
++        relative = root.relative_to(Path("/tmp"))
++        if not relative.parts:
++            return False
++        if root.is_symlink() or Path(os.path.realpath(root)) != root:
++            return False
++        return True
++    except ValueError:
++        return False
++
++
++def ensure_production_root(root: Path) -> None:
++    """Reject any production write when HDD is absent/wrong/readonly.
++
++    Must be called again immediately before each critical write or publication.
++    The systemd mount guard is defense in depth, never a substitute for this.
++    """
++    root = _absolute(root)
++    if root.is_symlink():
++        raise RuntimeError("MOUNT_NOT_VERIFIED: root symlink rejected")
++    if root != ROOT:
++        if _test_path(root):
++            return
++        raise RuntimeError("MOUNT_NOT_VERIFIED: non-production data root forbidden")
++    if not root.is_dir() or not os.path.ismount(root):
++        raise RuntimeError("MOUNT_NOT_VERIFIED: HDD missing, no SSD fallback")
++    try:
++        result = subprocess.run(
++            ["findmnt", "-r", "-n", "-M", str(root), "-o", "TARGET,FSTYPE,UUID"],
++            capture_output=True, text=True, timeout=4, check=False,
++        )
++    except (OSError, subprocess.TimeoutExpired) as exc:
++        raise RuntimeError("MOUNT_NOT_VERIFIED: mount identity unavailable") from exc
++    fields = result.stdout.strip().split()
++    if result.returncode != 0 or fields != [str(ROOT), "ext4", UUID]:
++        raise RuntimeError("MOUNT_NOT_VERIFIED: mount UUID/fstype/target mismatch")
++    try:
++        stats = os.statvfs(root)
++    except OSError as exc:
++        raise RuntimeError("MOUNT_NOT_VERIFIED: statvfs failed") from exc
++    if stats.f_flag & getattr(os, "ST_RDONLY", 1):
++        raise RuntimeError("MOUNT_NOT_VERIFIED: filesystem is read-only")
++
++
++def _check_existing_path_components(path: Path) -> None:
++    """Fail closed if a destination inside the data mount traverses a symlink.
++
++    Path.is_symlink on each ancestor is required: a path nested beneath a link
++    can otherwise bypass a correct mount check by redirecting writes to SSD.
++    This does not replace filesystem descriptor-based defenses against a
++    concurrent malicious rename; the station directory must be trusted/private.
++    """
++    relative = path.relative_to(ROOT)
++    current = ROOT
++    for component in relative.parts:
++        current = current / component
++        if current.is_symlink():
++            raise RuntimeError("MOUNT_NOT_VERIFIED: symlink below HDD mount")
++
++
++def ensure_destination(destination: Path) -> None:
++    """Guard all video outputs and forbid symlink redirection outside the HDD."""
++    destination = _absolute(destination)
++    if destination == ROOT or ROOT in destination.parents:
++        ensure_production_root(ROOT)
++        _check_existing_path_components(destination)
++        return
++    if _test_path(destination):
++        return
++    raise RuntimeError("MOUNT_NOT_VERIFIED: output outside verified HDD")
++
++
++def ensure_if_production(path: Path) -> None:
++    """Gate optional output paths too: a missing production HDD stops writes.
++
++    Standalone test runs require the explicit isolated /tmp flag. A normal
++    command must not produce data even under /opt if the verified HDD is gone.
++    """
++    path = _absolute(path)
++    if _test_path(path):
++        return
++    ensure_production_root(ROOT)
++    if path == ROOT or ROOT in path.parents:
++        _check_existing_path_components(path)
++
++
++def prepare_root(root: Path) -> None:
++    """In tests only, allow temporary root creation; NEVER create /srv mountpoint."""
++    ensure_production_root(root)
++    if _test_path(_absolute(root)):
++        root.mkdir(parents=True, exist_ok=True)
+--- a/test_storage_guard_mm01.py
++++ b/test_storage_guard_mm01.py
+@@ -0,0 +1,119 @@
++"""Negative tests: production HDD identity failure performs no filesystem write."""
++from __future__ import annotations
++import os
++import subprocess
++import tempfile
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++import storage_guard
++from meteormesh_pipeline import database_for
++
++
++class StorageGuardTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory(prefix='mm01-isolated-')
++        self.addCleanup(self.tmp.cleanup)
++        self.root = Path(self.tmp.name) / 'hdd'
++        self.root.mkdir()
++        self.patch_root = patch.object(storage_guard, 'ROOT', self.root)
++        self.patch_root.start()
++        self.addCleanup(self.patch_root.stop)
++
++    def response(self, fstype='ext4', uuid=storage_guard.UUID):
++        return subprocess.CompletedProcess(args=[], returncode=0,
++            stdout=f'{self.root} {fstype} {uuid}\n', stderr='')
++
++    def test_absent_mount_fails_without_sqlite(self):
++        with patch('storage_guard.os.path.ismount', return_value=False):
++            with self.assertRaisesRegex(RuntimeError, 'MOUNT_NOT_VERIFIED'):
++                database_for(self.root, initialize=True)
++        self.assertEqual(list(self.root.iterdir()), [])
++
++    def test_wrong_uuid_fails_without_sqlite(self):
++        with patch('storage_guard.os.path.ismount', return_value=True), \
++             patch('storage_guard.subprocess.run', return_value=self.response(uuid='incorrect')):
++            with self.assertRaisesRegex(RuntimeError, 'UUID'):
++                database_for(self.root, initialize=True)
++        self.assertEqual(list(self.root.iterdir()), [])
++
++    def test_wrong_fstype_fails(self):
++        with patch('storage_guard.os.path.ismount', return_value=True), \
++             patch('storage_guard.subprocess.run', return_value=self.response(fstype='xfs')):
++            with self.assertRaisesRegex(RuntimeError, 'mismatch'):
++                storage_guard.ensure_production_root(self.root)
++
++    def test_malformed_findmnt_fails(self):
++        with patch('storage_guard.os.path.ismount', return_value=True), \
++             patch('storage_guard.subprocess.run', return_value=subprocess.CompletedProcess([], 1,'','')):
++            with self.assertRaisesRegex(RuntimeError, 'MOUNT_NOT_VERIFIED'):
++                database_for(self.root, initialize=True)
++
++    def test_verified_mount_succeeds_using_mock_only(self):
++        with patch('storage_guard.os.path.ismount', return_value=True), \
++             patch('storage_guard.subprocess.run', return_value=self.response()):
++            with database_for(self.root, initialize=True) as db:
++                self.assertEqual(db.execute('SELECT count(*) FROM segments').fetchone()[0], 0)
++        self.assertTrue((self.root / 'meteorhub.sqlite3').is_file())
++
++    def test_guard_fails_when_mount_drops_between_steps(self):
++        responses = iter([True, False])
++        with patch('storage_guard.os.path.ismount', side_effect=lambda *_: next(responses)), \
++             patch('storage_guard.subprocess.run', return_value=self.response()):
++            storage_guard.ensure_production_root(self.root)
++            with self.assertRaisesRegex(RuntimeError, 'MOUNT_NOT_VERIFIED'):
++                storage_guard.ensure_production_root(self.root)
++
++    def test_no_external_root_without_test_flag(self):
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: ''}):
++            with self.assertRaisesRegex(RuntimeError, 'non-production'):
++                storage_guard.ensure_production_root(Path(self.tmp.name) / 'other')
++
++    def test_temp_root_requires_explicit_test_flag(self):
++        scratch = Path(self.tmp.name) / 'scratch'
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG:'isolated-only'}):
++            storage_guard.prepare_root(scratch)
++            self.assertTrue(scratch.is_dir())
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: ''}):
++            with self.assertRaisesRegex(RuntimeError, 'non-production'):
++                storage_guard.ensure_production_root(scratch)
++
++    def test_symlink_mount_root_rejected(self):
++        link = Path(self.tmp.name) / 'symlink'
++        link.symlink_to(self.root, target_is_directory=True)
++        storage_guard.ROOT = link
++        with self.assertRaisesRegex(RuntimeError, 'symlink'):
++            storage_guard.ensure_production_root(link)
++
++    def test_destination_outside_hdd_rejected(self):
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: ''}):
++            with self.assertRaisesRegex(RuntimeError, 'outside verified HDD'):
++                storage_guard.ensure_destination(Path(self.tmp.name) / 'ssd-video.mp4')
++
++    def test_nested_symlink_redirect_is_denied_even_on_mock_verified_mount(self):
++        escaped = Path(self.tmp.name) / 'ssd-target'
++        escaped.mkdir()
++        (self.root / 'redirect').symlink_to(escaped, target_is_directory=True)
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: ''}), \
++             patch('storage_guard.os.path.ismount', return_value=True), \
++             patch('storage_guard.subprocess.run', return_value=self.response()):
++            with self.assertRaisesRegex(RuntimeError, 'symlink below HDD'):
++                storage_guard.ensure_destination(self.root / 'redirect' / 'video.mp4')
++        self.assertEqual(list(escaped.iterdir()), [])
++
++    def test_optional_output_also_blocked_if_disk_missing(self):
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: ''}), \
++             patch('storage_guard.os.path.ismount', return_value=False):
++            with self.assertRaisesRegex(RuntimeError, 'MOUNT_NOT_VERIFIED'):
++                storage_guard.ensure_if_production(Path(self.tmp.name) / 'summary.json')
++
++    def test_optional_test_output_allowed_only_with_explicit_flag(self):
++        output = Path(self.tmp.name) / 'report.json'
++        with patch.dict(os.environ, {storage_guard.TEST_FLAG: 'isolated-only'}):
++            storage_guard.ensure_if_production(output)
++        self.assertFalse(output.exists())
++
++
++if __name__ == '__main__':
++    unittest.main()

@@ -20,7 +20,7 @@ POLICY = STAGE / 'night-scope-v1.json'
 URL = ('https://raw.githubusercontent.com/comolokko45/meteormesh/'
        'meteormesh-night-scope-review-20261030/staging/'
        'MeteorMesh-RC1.3-Night-Scope-STAGING-2026-10-30.zip.b64')
-B64_SHA = '88b48a68663248fc3d1b122728fffa6459421c192ea1f4118886d76df5c1864d'
+B64_SHA = '0b5e5fa13823fc531516c56f7dbe4f26db327b3c8495284fcf75b8520e012f74'
 ZIP_SHA = '125fa63e663146bbe9e5c048be46d5ce185a74a11aa507cf510e55cbd1f39ac6'
 FILES = {'night_scope.py', 'meteor_morning.py', 'meteormesh_hub.py',
          'hub_workflow.py', 'hub_events.py', 'test_night_scope.py'}

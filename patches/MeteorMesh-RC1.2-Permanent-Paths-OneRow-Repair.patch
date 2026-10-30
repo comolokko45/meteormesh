@@ -1,0 +1,352 @@
+--- a/MeteorHub/mm01_bridge.py
++++ b/MeteorHub/mm01_bridge.py
+@@ -392,6 +392,22 @@
+         os.close(parent)
+ 
+ 
++def persistent_data_path(path: Path) -> Path:
++    """Record a durable /srv path, NEVER the transient /proc/self/fd handle.
++
++    Used for database/JSON metadata only. It grants no file access and cannot
++    replace FD-pinned reads/writes. The active guard validates the mount first.
++    """
++    guard = _ACTIVE.get()
++    if guard is None:
++        if str(path).startswith('/proc/self/fd/'):
++            raise StorageDenied('PERSISTENT_PATH_REQUIRES_ACTIVE_GUARD')
++        return path
++    rel = _relative_active(path, guard)
++    guard.verify()
++    return Path(guard.policy.root) / rel
++
++
+ def is_protected_write_context() -> bool:
+     return _ACTIVE.get() is not None
+ 
+--- a/MeteorHub/hub_workflow.py
++++ b/MeteorHub/hub_workflow.py
+@@ -25,6 +25,7 @@
+ DEFAULT_JOB_LEASE_SECONDS = 6 * 3600
+ 
+ 
++from mm01_bridge import persistent_data_path as _mm01_persistent_path
+ from mm01_bridge import guarded_db_connect as _mm01_db, verify_write_path as _mm01_verify, is_unsafe_symlink as _mm01_unsafe_link, guarded_partial_open as _mm01_open_partial, guarded_output_dir as _mm01_output_dir, guarded_detector_run as _mm01_detector_run, guarded_publish as _mm01_publish, is_protected_write_context as _mm01_active
+ def utc_now() -> str:
+     return dt.datetime.now(dt.timezone.utc).isoformat()
+@@ -228,12 +229,12 @@
+          duration_seconds, completed_utc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+         (job["id"], job["device_id"], job["segment_id"], job["sha256"],
+-         METDETPY_VERSION, commit, job["config_sha256"], str(final), result_sha,
++         METDETPY_VERSION, commit, job["config_sha256"], str(_mm01_persistent_path(final)), result_sha,
+          elapsed, utc_now()))
+     db.execute("""UPDATE jobs SET state='SUCCEEDED', claimed_at=NULL,
+                finished_utc=? WHERE id=? AND state='RUNNING'""", (utc_now(), job["id"]))
+     db.commit()
+-    return str(final)
++    return str(_mm01_persistent_path(final))
+ 
+ 
+ def queue_summary(db: sqlite3.Connection) -> dict:
+--- a/MeteorHub/meteor_morning.py
++++ b/MeteorHub/meteor_morning.py
+@@ -29,6 +29,7 @@
+ from meteormesh_pipeline import database_for, sha256_file
+ 
+ 
++from mm01_bridge import persistent_data_path as _mm01_persistent_path
+ from mm01_bridge import guarded_db_connect as _mm01_db, verify_write_path as _mm01_verify, is_unsafe_symlink as _mm01_unsafe_link, guarded_partial_open as _mm01_open_partial, guarded_output_dir as _mm01_output_dir, guarded_detector_run as _mm01_detector_run, guarded_publish as _mm01_publish, is_protected_write_context as _mm01_active
+ def utc_now() -> str:
+     return dt.datetime.now(dt.timezone.utc).isoformat()
+@@ -254,8 +255,8 @@
+                 try:
+                     events = build_event_report(db, data_root, [d["id"] for d in devices])
+                     event_name = "events_provisional_" + run_id + ".json"
+-                    report["provisional_event_report"] = str(write_new_report(
+-                        reports_folder(data_root), event_name, events))
++                    report["provisional_event_report"] = str(_mm01_persistent_path(write_new_report(
++                        reports_folder(data_root), event_name, events)))
+                     report["provisional_events_unreviewed"] = events["provisional_groups"]
+                 except Exception as exc:
+                     report["errors"].append(f"event summary: {type(exc).__name__}: {exc}")
+@@ -266,7 +267,7 @@
+         report["elapsed_seconds"] = max(0, round(clock() - start_monotonic, 2))
+         report["outcome"] = "PARTIAL_REVIEW_REQUIRED" if (
+             report["errors"] or report.get("provisional_events_skipped")) else "COMPLETED_PROVISIONAL"
+-        report["run_report"] = str(reports_folder(data_root) / ("morning_" + run_id + ".json"))
++        report["run_report"] = str(_mm01_persistent_path(reports_folder(data_root) / ("morning_" + run_id + ".json")))
+         write_new_report(reports_folder(data_root), "morning_" + run_id + ".json", report)
+     return report
+ 
+--- a/MeteorHub/hub_events.py
++++ b/MeteorHub/hub_events.py
+@@ -169,7 +169,23 @@
+         if not VALID_ID.fullmatch(device) or not VALID_ID.fullmatch(segment):
+             raise RuntimeError("Unsafe DB source identity")
+         sidecar = data_root / device / f"{segment}.json"
+-        result_file = Path(result_path)
++        # A permanent DB path is for persistence only; reopen through the
++        # currently FD-pinned mount during an active production run.
++        from mm01_bridge import is_protected_write_context
++        if is_protected_write_context():
++            from mm01_bridge import ROOT
++            try:
++                result_rel = Path(result_path).relative_to(ROOT)
++            except ValueError as exc:
++                raise RuntimeError('Noncanonical detector result path in SQLite') from exc
++            if (len(result_rel.parts) != 3 or result_rel.parts[0] != 'detector-results'
++                    or result_rel.parts[1] != device
++                    or not result_rel.parts[2].startswith(segment + '_')
++                    or not result_rel.parts[2].endswith('.json')):
++                raise RuntimeError('Detector result path does not match its job')
++            result_file = data_root / result_rel
++        else:
++            result_file = Path(result_path)
+         if sidecar.is_symlink() or result_file.is_symlink():
+             raise RuntimeError("Symlink event source is forbidden")
+         metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+--- a/MeteorHub/repair_detector_path.py
++++ b/MeteorHub/repair_detector_path.py
+@@ -0,0 +1,131 @@
++#!/usr/bin/env python3
++"""Repair ONE stale detector result path after confirming its original SHA-256.
++
++No MP4 reads, detector runs, files moved/deleted, or schema edits.
++The only optional DB mutation is detector_runs.result_path for exactly one
++completed job; failure leaves the row unchanged. Live root is fixed.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import re
++import sqlite3
++import stat
++from pathlib import Path
++
++from meteornode_pull import VALID_ID
++from storage_guard import GuardedStorage, StorageDenied
++
++ROOT = Path('/srv/meteor-data')
++SHA = re.compile(r'[0-9a-f]{64}\Z')
++
++
++def _record(db, device: str, segment: str):
++    if not VALID_ID.fullmatch(device) or not VALID_ID.fullmatch(segment):
++        raise RuntimeError('INVALID_IDENTIFIERS')
++    rows = db.execute('''SELECT r.job_id, r.result_path, r.result_sha256,
++                       r.config_sha256, j.state
++                       FROM detector_runs r JOIN jobs j ON j.id=r.job_id
++                       WHERE r.device_id=? AND r.segment_id=?''',
++                      (device, segment)).fetchall()
++    if len(rows) != 1:
++        raise RuntimeError(f'EXPECTED_EXACTLY_ONE_DETECTOR_RUN_FOUND_{len(rows)}')
++    job_id, old, digest, config_sha, state = rows[0]
++    if state != 'SUCCEEDED' or not SHA.fullmatch(digest) or not SHA.fullmatch(config_sha):
++        raise RuntimeError('INVALID_DETECTOR_RUN_RECORD')
++    leaf = f'{segment}_{config_sha[:10]}.json'
++    expected = ROOT / 'detector-results' / device / leaf
++    if old != str(expected) and not re.fullmatch(
++            r'/proc/self/fd/[0-9]+/' + re.escape(leaf), old):
++        raise RuntimeError('UNEXPECTED_OLD_PATH_REFUSE_REPAIR')
++    return (job_id, old, digest, str(expected), leaf)
++
++
++def _checked_result_file(guard, device: str, leaf: str, digest: str) -> int:
++    """Read the result through verified dirfd + O_NOFOLLOW, not its pathname."""
++    guard.verify()
++    parent = guard._open_parent(['detector-results', device], create=False)
++    fd = None
++    try:
++        fd = os.open(leaf, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
++                     dir_fd=parent)
++        st = os.fstat(fd)
++        if not stat.S_ISREG(st.st_mode) or st.st_dev != guard._initial_dev:
++            raise RuntimeError('RESULT_NOT_REGULAR_ON_VERIFIED_HDD')
++        if not 0 < st.st_size <= 128 * 1024 * 1024:
++            raise RuntimeError('RESULT_JSON_SIZE_OUT_OF_BOUNDS')
++        with os.fdopen(fd, 'rb') as src:
++            fd = None
++            h = hashlib.sha256()
++            while chunk := src.read(1024 * 1024):
++                guard.verify()
++                h.update(chunk)
++            if h.hexdigest() != digest:
++                raise RuntimeError('RESULT_HASH_MISMATCH_NO_UPDATE')
++            src.seek(0)
++            data = json.load(src)
++            if not isinstance(data, dict) or not isinstance(data.get('results'), list):
++                raise RuntimeError('RESULT_JSON_SCHEMA_INVALID')
++        st2 = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
++        if (st.st_dev, st.st_ino, st.st_size) != (st2.st_dev, st2.st_ino, st2.st_size):
++            raise RuntimeError('RESULT_CHANGED_DURING_VERIFICATION')
++        guard.verify()
++        return len(data['results'])
++    finally:
++        if fd is not None:
++            os.close(fd)
++        os.close(parent)
++
++
++def repair_one(db: sqlite3.Connection, guard, device: str, segment: str,
++               *, apply: bool = False) -> dict:
++    job_id, old, digest, expected, leaf = _record(db, device, segment)
++    n = _checked_result_file(guard, device, leaf, digest)
++    already = old == expected
++    if apply and not already:
++        guard.verify()
++        db.execute('BEGIN IMMEDIATE')
++        try:
++            row = _record(db, device, segment)
++            if row != (job_id, old, digest, expected, leaf):
++                raise RuntimeError('ROW_CHANGED_DURING_REPAIR')
++            change = db.execute('''UPDATE detector_runs SET result_path=?
++                                  WHERE job_id=? AND result_path=? AND result_sha256=?''',
++                                (expected, job_id, old, digest))
++            if change.rowcount != 1:
++                raise RuntimeError('CONCURRENT_UPDATE_REFUSED')
++            guard.verify()
++            db.commit()
++        except BaseException:
++            db.rollback()
++            raise
++    return {'job_id': job_id, 'segment_id': segment, 'validated_results': n,
++            'hash_match': True, 'old_path': old, 'stable_path': expected,
++            'status': ('ALREADY_CORRECT' if already else
++                       'REPAIRED' if apply else 'REPAIR_AVAILABLE'),
++            'modified_rows': 1 if apply and not already else 0}
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--device', required=True)
++    parser.add_argument('--segment', required=True)
++    parser.add_argument('--apply', action='store_true', help='Commit only a verified one-row path correction')
++    args = parser.parse_args()
++    # Production root/UUID/fstype are defined solely by StoragePolicy defaults.
++    with GuardedStorage() as guard:
++        db = guard.connect_sqlite('meteorhub.sqlite3', read_only=not args.apply)
++        result = repair_one(db, guard, args.device, args.segment, apply=args.apply)
++        print(json.dumps(result, ensure_ascii=False, indent=2))
++    return 0
++
++
++if __name__ == '__main__':
++    try:
++        raise SystemExit(main())
++    except (RuntimeError, ValueError, sqlite3.Error, OSError, StorageDenied) as exc:
++        print('RESULT_REPAIR_BLOCKED:', type(exc).__name__, str(exc))
++        raise SystemExit(2)
+--- a/MeteorHub/test_rc12_persistent_paths.py
++++ b/MeteorHub/test_rc12_persistent_paths.py
+@@ -0,0 +1,108 @@
++import hashlib
++import json
++import os
++import sqlite3
++import tempfile
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import mm01_bridge
++import repair_detector_path as repair
++
++
++class FakeGuard:
++    def __init__(self, root):
++        self.root = Path(root)
++        self._initial_dev = self.root.stat().st_dev
++        self.verifications = 0
++    def verify(self):
++        self.verifications += 1
++    def _open_parent(self, parts, create=False):
++        assert not create
++        fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
++        try:
++            for part in parts:
++                nextfd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
++                                 dir_fd=fd)
++                os.close(fd)
++                fd = nextfd
++            return fd
++        except BaseException:
++            os.close(fd)
++            raise
++
++
++class RC12Tests(unittest.TestCase):
++    def test_stable_path_maps_pinned_fd(self):
++        g = SimpleNamespace(_fd=7, _mm01_pins={8:'detector-results/cam-viva'},
++                            policy=SimpleNamespace(root='/srv/meteor-data'), verify=lambda: None)
++        token = mm01_bridge._ACTIVE.set(g)
++        try:
++            p = mm01_bridge.persistent_data_path(Path('/proc/self/fd/8/a.json'))
++            self.assertEqual(p, Path('/srv/meteor-data/detector-results/cam-viva/a.json'))
++            with self.assertRaises(Exception):
++                mm01_bridge.persistent_data_path(Path('/tmp/bad.json'))
++        finally:
++            mm01_bridge._ACTIVE.reset(token)
++
++    def test_persistent_fd_without_guard_denied(self):
++        with self.assertRaises(Exception):
++            mm01_bridge.persistent_data_path(Path('/proc/self/fd/8/notpersistent.json'))
++
++    def test_verify_then_repair_only_path(self):
++        with tempfile.TemporaryDirectory() as d:
++            root = Path(d)
++            folder = root/'detector-results'/'cam-viva'
++            folder.mkdir(parents=True)
++            config_sha = 'a'*64
++            segment = 'viva_test_1234'
++            leaf = f'{segment}_{config_sha[:10]}.json'
++            result = folder/leaf
++            result.write_text(json.dumps({'results':[{'a':1}]}))
++            sha = hashlib.sha256(result.read_bytes()).hexdigest()
++            db = sqlite3.connect(':memory:')
++            db.executescript('''CREATE TABLE jobs(id INTEGER PRIMARY KEY,state TEXT);
++                               CREATE TABLE detector_runs(job_id INTEGER,device_id TEXT,
++                                   segment_id TEXT,result_path TEXT,result_sha256 TEXT,
++                                   config_sha256 TEXT);''')
++            fd_path = '/proc/self/fd/8/'+leaf
++            db.execute('INSERT INTO jobs VALUES (1,\'SUCCEEDED\')')
++            db.execute('INSERT INTO detector_runs VALUES (1,?,?,?,?,?)',
++                       ('cam-viva',segment,fd_path,sha,config_sha))
++            db.commit()
++            g = FakeGuard(root)
++            with patch.object(repair,'ROOT',root):
++                dry=repair.repair_one(db,g,'cam-viva',segment)
++                self.assertEqual(dry['modified_rows'],0)
++                self.assertEqual(db.execute('SELECT result_path FROM detector_runs').fetchone()[0],fd_path)
++                fixed=repair.repair_one(db,g,'cam-viva',segment,apply=True)
++                self.assertEqual(fixed['status'],'REPAIRED')
++                self.assertEqual(db.execute('SELECT result_path FROM detector_runs').fetchone()[0],str(result))
++                self.assertEqual(repair.repair_one(db,g,'cam-viva',segment,apply=True)['status'],'ALREADY_CORRECT')
++            db.close()
++
++    def test_wrong_sha_refuses_mutation(self):
++        with tempfile.TemporaryDirectory() as d:
++            root=Path(d); folder=root/'detector-results'/'cam-viva';folder.mkdir(parents=True)
++            seg='viva_test_1234'; config_sha='b'*64
++            leaf=f'{seg}_{config_sha[:10]}.json'
++            (folder/leaf).write_text('{"results":[]}')
++            db=sqlite3.connect(':memory:')
++            db.executescript('''CREATE TABLE jobs(id INTEGER PRIMARY KEY,state TEXT);
++                               CREATE TABLE detector_runs(job_id INTEGER,device_id TEXT,
++                                   segment_id TEXT,result_path TEXT,result_sha256 TEXT,
++                                   config_sha256 TEXT);''')
++            old='/proc/self/fd/8/'+leaf
++            db.execute("INSERT INTO jobs VALUES (1,'SUCCEEDED')")
++            db.execute('INSERT INTO detector_runs VALUES (1,?,?,?,?,?)',('cam-viva',seg,old,'0'*64,config_sha))
++            db.commit()
++            with patch.object(repair,'ROOT',root):
++                with self.assertRaisesRegex(RuntimeError,'RESULT_HASH_MISMATCH'):
++                    repair.repair_one(db,FakeGuard(root),'cam-viva',seg,apply=True)
++            self.assertEqual(db.execute('SELECT result_path FROM detector_runs').fetchone()[0],old)
++            db.close()
++
++
++if __name__=='__main__':unittest.main()

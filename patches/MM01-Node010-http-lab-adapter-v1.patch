@@ -1,0 +1,208 @@
+--- a/meteornode_pull.py
++++ b/meteornode_pull.py
+@@ -9,6 +9,7 @@
+ 
+ import argparse
+ import hashlib
++import ipaddress
+ import http.client
+ import json
+ import os
+@@ -27,6 +28,21 @@
+     if not re.fullmatch(r"[0-9a-f]{64}", candidate):
+         raise ValueError("Certificate SHA-256 fingerprint must have 64 hex characters")
+     return candidate
++
++
++# Node 0.10 uses unauthenticated HTTP transport on an isolated laboratory LAN.
++# This special transport is intentionally NOT a replacement for pinned TLS.
++PRIVATE_LAN_RANGES = tuple(ipaddress.ip_network(s) for s in
++    ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
++
++
++def require_lab_endpoint(host: str, port: int) -> None:
++    try:
++        address = ipaddress.IPv4Address(host)
++    except ipaddress.AddressValueError as exc:
++        raise ValueError("HTTP lab transport requires a literal RFC1918 IPv4 address") from exc
++    if not any(address in network for network in PRIVATE_LAN_RANGES) or port != 8080:
++        raise ValueError("HTTP lab transport restricted to RFC1918 IPv4 port 8080")
+ 
+ 
+ class MeteorNode:
+@@ -196,6 +212,25 @@
+         return digest.hexdigest()
+ 
+ 
++class MeteorNodeLabHTTP(MeteorNode):
++    """Node 0.10 lab-only transport; inherits the verified, guarded pull logic.
++
++    No insecure HTTP transport is enabled without explicit 'http_lab' config.
++    Never expose port 8080 to the internet; the test bearer token is public.
++    """
++    def __init__(self, host: str, port: int, token: str):
++        require_lab_endpoint(host, port)
++        if len(token) < 32:
++            raise ValueError("Pairing token missing/too short")
++        self.host = host
++        self.port = port
++        self.token = token
++        self.fingerprint = None
++
++    def connection(self) -> http.client.HTTPConnection:
++        return http.client.HTTPConnection(self.host, self.port, timeout=30)
++
++
+ def main() -> None:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--host", required=True, help="Phone's LAN IPv4 address")
+--- a/meteormesh_hub.py
++++ b/meteormesh_hub.py
+@@ -21,7 +21,8 @@
+ from pathlib import Path
+ from typing import Callable
+ 
+-from meteornode_pull import MeteorNode, VALID_ID, normalize_fingerprint
++from meteornode_pull import (MeteorNode, MeteorNodeLabHTTP, VALID_ID,
++                             normalize_fingerprint, require_lab_endpoint)
+ from storage_guard import ensure_production_root, prepare_root, ensure_if_production
+ 
+ 
+@@ -61,12 +62,27 @@
+         port = item.get("port", 8443)
+         if isinstance(port, bool) or not isinstance(port, int) or not (1 <= port <= 65535):
+             raise ValueError(f"Invalid port for {name}")
+-        fingerprint = normalize_fingerprint(item.get("fingerprint", ""))
++        transport = item.get("transport", "tls_pinned")
++        if transport == "tls_pinned":
++            fp = item.get("fingerprint", "")
++            if not isinstance(fp, str):
++                raise ValueError("Invalid fingerprint type")
++            fingerprint = normalize_fingerprint(fp)
++        elif transport == "http_lab":
++            require_lab_endpoint(host, port)
++            if item.get("fingerprint") not in (None, ""):
++                raise ValueError("HTTP lab config must not supply a TLS fingerprint")
++            fingerprint = None
++        else:
++            raise ValueError(f"Unsupported transport for {name}: {transport!r}")
+         token_env = item.get("token_env")
+         if not isinstance(token_env, str) or not TOKEN_ENV.fullmatch(token_env):
+             raise ValueError(f"Invalid token_env for {name}")
+-        result.append({"id": name, "host": host, "port": port,
+-                       "fingerprint": fingerprint, "token_env": token_env})
++        configured = {"id": name, "host": host, "port": port,
++                      "fingerprint": fingerprint, "token_env": token_env}
++        if transport == "http_lab":
++            configured["transport"] = "http_lab"
++        result.append(configured)
+     return result
+ 
+ 
+@@ -155,6 +171,8 @@
+     token = os.environ.get(device["token_env"], "")
+     if not token:
+         raise ValueError(f"Missing pairing environment variable: {device['token_env']}")
++    if device.get("transport", "tls_pinned") == "http_lab":
++        return MeteorNodeLabHTTP(device["host"], device["port"], token)
+     return MeteorNode(device["host"], device["port"], device["fingerprint"], token)
+ 
+ 
+--- /dev/null
++++ b/test_lab_http_adapter.py
+@@ -0,0 +1,95 @@
++"""Offline-only regression for Node 0.10 HTTP laboratory adapter."""
++import hashlib
++import json
++import os
++import tempfile
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++import http.client
++from meteormesh_hub import read_device_config, make_node
++from meteornode_pull import MeteorNode, MeteorNodeLabHTTP
++
++class LabAdapterTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp=tempfile.TemporaryDirectory(prefix='meteormesh-http-adapter-')
++        self.addCleanup(self.tmp.cleanup)
++        self.root=Path(self.tmp.name)
++    def load(self,extra=None):
++        x={'id':'viva','host':'192.168.0.216','port':8080,'transport':'http_lab','token_env':'METEOR_TEST_TOKEN'}
++        x.update(extra or {})
++        p=self.root/'devices.json';p.write_text(json.dumps({'devices':[x]}))
++        return read_device_config(p)
++    def test_accepts_real_viva_config(self):
++        d=self.load(); self.assertEqual(d[0]['transport'],'http_lab');self.assertIsNone(d[0]['fingerprint'])
++    def test_safely_builds_http_node(self):
++        with patch.dict(os.environ,{'METEOR_TEST_TOKEN':'t'*32}):
++            node=make_node(self.load()[0]);self.assertIsInstance(node,MeteorNodeLabHTTP)
++            self.assertIsInstance(node.connection(),http.client.HTTPConnection)
++            self.assertNotIsInstance(node.connection(),http.client.HTTPSConnection)
++    def test_no_token_does_not_fallback_to_embedded_token(self):
++        with patch.dict(os.environ,{},clear=True):
++            with self.assertRaisesRegex(ValueError,'Missing pairing'):
++                make_node(self.load()[0])
++    def test_invalid_lab_hosts_rejected(self):
++        for host in ('8.8.8.8','127.0.0.1','1.2.3.4','0.0.0.0','169.254.1.1','google.com','192.168.0.216:8080','192.168.0.216\r\nHost: x'):
++            with self.subTest(host=host),self.assertRaises(ValueError):
++                self.load({'host':host})
++    def test_invalid_lab_port_rejected(self):
++        for port in (22,80,443,8443,0,9999,65536):
++            with self.subTest(port=port),self.assertRaises(ValueError):
++                self.load({'port':port})
++    def test_invalid_lab_fingerprint_rejected(self):
++        with self.assertRaisesRegex(ValueError,'must not supply'):
++            self.load({'fingerprint':'a'*64})
++    def test_unknown_transport_rejected(self):
++        with self.assertRaisesRegex(ValueError,'Unsupported transport'):
++            self.load({'transport':'http'})
++    def test_tls_pinned_remains_default(self):
++        ds=self.load({'transport':'tls_pinned','port':8443,'fingerprint':'a'*64})
++        with patch.dict(os.environ,{'METEOR_TEST_TOKEN':'t'*32}):
++            self.assertEqual(type(make_node(ds[0])),MeteorNode)
++    def test_tampered_tls_fingerprint_still_rejected(self):
++        with self.assertRaisesRegex(ValueError,'fingerprint'):
++            self.load({'transport':'tls_pinned','port':8443,'fingerprint':None})
++    def test_lab_http_get_auth_protocol(self):
++        node=MeteorNodeLabHTTP('192.168.0.216',8080,'t'*32)
++        class FakeResponse:
++            status=200
++            def read(self,limit):return b'{"segments":[]}'
++        class FakeConnection:
++            def __init__(self):self.calls=[]
++            def request(self,*a,**k):self.calls.append((a,k))
++            def getresponse(self):return FakeResponse()
++            def close(self):pass
++        fake=FakeConnection()
++        with patch.object(node,'connection',return_value=fake):
++            self.assertEqual(node.get_json('/api/v1/segments'),{'segments':[]})
++        self.assertEqual(fake.calls[0][0][:2],('GET','/api/v1/segments'))
++        self.assertEqual(fake.calls[0][1]['headers']['Authorization'],'Bearer '+'t'*32)
++    def test_lab_http_inherits_mm01_write_guard(self):
++        node=MeteorNodeLabHTTP('192.168.0.216',8080,'t'*32)
++        with self.assertRaisesRegex(RuntimeError,'MOUNT_NOT_VERIFIED'):
++            node.pull_one({'segment_id':'viva_demo_001','size_bytes':100,'sha256':'b'*64},Path('/opt/meteormesh/test/unguarded'))
++    def test_lab_http_fakes_verified_pull_in_isolated_tmp(self):
++        content=b'VALID-FAKE-MP4-BYTES'; digest=hashlib.sha256(content).hexdigest()
++        seg={'segment_id':'viva_demo_001','size_bytes':len(content),'sha256':digest}
++        class FakeResponse:
++            status=200
++            def __init__(self): self.content=content
++            def read(self,limit):
++                data=self.content;self.content=b'';return data
++        class FakeConnection:
++            def request(self,*a,**k):pass
++            def getresponse(self):return FakeResponse()
++            def close(self):pass
++        node=MeteorNodeLabHTTP('192.168.0.216',8080,'t'*32)
++        target=self.root/'output';target.mkdir()
++        with patch.dict(os.environ,{'METEORMESH_ISOLATED_TEST_ROOT':'isolated-only'}),patch.object(node,'connection',return_value=FakeConnection()):
++            outcome=node.pull_one(seg,target)
++        self.assertIn('SHA256 verified',outcome)
++        self.assertEqual((target/'viva_demo_001.mp4').read_bytes(),content)
++        self.assertEqual(json.loads((target/'viva_demo_001.json').read_text())['sha256'],digest)
++        self.assertFalse((target/'viva_demo_001.mp4.part').exists())
++
++if __name__=='__main__':unittest.main()

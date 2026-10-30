@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from meteor_ingest_one import ingest_one, select_segment
+from meteor_ingest_one import ingest_one, select_segment, enqueue_selected
 from meteornode_pull import MeteorNode
 from meteormesh_pipeline import database_for
 
@@ -87,6 +87,18 @@ class BoundedIngestTests(unittest.TestCase):
         self.assertEqual(first['phone_deleted'], False)
         with database_for(self.root) as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0], 1)
+
+    def test_only_chosen_video_is_queued(self):
+        node = FakeNode()
+        with patch('meteor_ingest_one.verify_with_ffprobe', return_value=('INGEST_VERIFIED', {})):
+            ingest_one(node, root=self.root, device_id='cam-viva',
+                       detector_config=self.config, minimum_bytes=1)
+        with database_for(self.root) as db:
+            db.execute("INSERT INTO segments VALUES (?,?,?,?,?,?,?)",
+                ('cam-ruby', 'ruby_other', 'a'*64, 200, 'INGEST_VERIFIED', '{}', 'now'))
+            db.commit()
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT device_id FROM jobs").fetchone()[0], 'cam-viva')
 
     def test_failed_media_does_not_enqueue(self):
         node = FakeNode()

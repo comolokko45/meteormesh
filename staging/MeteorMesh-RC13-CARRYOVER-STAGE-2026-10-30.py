@@ -28,7 +28,7 @@ BASELINE = STAGE / 'night-scope-v1.json'
 PKG_URL = ('https://raw.githubusercontent.com/comolokko45/meteormesh/'
            'meteormesh-night-scope-review-20261030/staging/'
            'MeteorMesh-RC13-CARRYOVER-2026-10-30.zip.b64')
-PKG_SHA256 = 'f113cf3dea45303a60c1544396de33dbc7acc004d2102654996d293ed0f757b2'
+PKG_SHA256 = 'fec2f8c02fed637e97212767df2ccb042067a25ba7c9a9383c2a7eda0a631863'
 ORIGINAL = {
     'hub_events.py': 'a5a90704716d0d683576205c9a1680345f9e329919ed2a9696e44ab2582fa97f',
     'hub_workflow.py': '417690e6171cf4a9a8b6a6a027c05d49dc5089bcec9d121676a6fc48d3f98568',

@@ -1,0 +1,46 @@
+name: MeteorNode 0.11 Remote Storage APK
+on:
+  push:
+    branches: [meteornode-0.11-remote-storage]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Restore source
+        run: |
+          base64 -d staging/MeteorNode-0.11-FullRemoteStorage-source.zip.b64 > /tmp/meteor011.zip
+          echo "6db5a71fdc33fd17a7b721111716985103bd230647b80bee2e20270dd337198e  /tmp/meteor011.zip" | sha256sum -c -
+          unzip -q /tmp/meteor011.zip
+      - name: Install Android SDK 35
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Tests
+        working-directory: MeteorNode-0.11-RemoteStorage
+        run: |
+          python3 -m unittest discover -s . -p test_v011_storage_contract.py -v
+          python3 -m unittest discover -s linux -p 'test_*.py' -v
+      - name: Build APK
+        working-directory: MeteorNode-0.11-RemoteStorage
+        run: gradle --no-daemon :app:assembleDebug
+      - name: SHA-256
+        working-directory: MeteorNode-0.11-RemoteStorage
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeteorNode-0.11-RemoteStorage-debug-apk
+          path: MeteorNode-0.11-RemoteStorage/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

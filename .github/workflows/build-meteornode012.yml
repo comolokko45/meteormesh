@@ -1,0 +1,55 @@
+name: MeteorNode 0.12 SingleCopy APK
+on:
+  push:
+    branches: [meteornode-0.12-single-copy]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Restore source with checksum
+        run: |
+          base64 -d staging/MeteorNode-0.12-SingleCopy-source.zip.b64 > /tmp/meteor012.zip
+          echo "45027c363bef6919a8416397bae831217a9df148d4e0862d305b8dac1bf7860f  /tmp/meteor012.zip" | sha256sum -c -
+          unzip -q /tmp/meteor012.zip
+      - name: Install Android SDK 35
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Tests
+        working-directory: MeteorNode-0.12-SingleCopy
+        run: |
+          python3 -m unittest discover -s . -p 'test_v01*.py' -v
+          python3 -m unittest discover -s linux -p 'test_*.py' -v
+      - name: Build debug APK
+        working-directory: MeteorNode-0.12-SingleCopy
+        run: gradle --no-daemon :app:assembleDebug
+      - name: APK hash
+        working-directory: MeteorNode-0.12-SingleCopy
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeteorNode-0.12-SingleCopy-debug-apk
+          path: MeteorNode-0.12-SingleCopy/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Publish direct APK
+        run: |
+          mkdir -p releases
+          cp MeteorNode-0.12-SingleCopy/app/build/outputs/apk/debug/app-debug.apk releases/MeteorNode-0.12-SingleCopy-debug.apk
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add releases/MeteorNode-0.12-SingleCopy-debug.apk
+          git commit -m 'build: publish MeteorNode 0.12 APK [skip ci]'
+          git push origin HEAD:meteornode-0.12-single-copy

@@ -16,7 +16,7 @@ from urllib.request import urlopen
 HOME=Path.home()
 TARGET=HOME/'.local/lib/meteormesh/meteor-event-review.py'
 DROP=HOME/'.config/systemd/user/meteormesh-analyze.service.d/30-event-review.conf'
-SRC='https://raw.githubusercontent.com/comolokko45/meteormesh/meteorhub-rc14-split/tools/mm14_event_review.py'
+SRC='https://raw.githubusercontent.com/comolokko45/meteormesh/meteorhub-rc14-split/tools/mm14_event_review.py?fix=20261031-release-a'
 SOURCE_SHA='b06fef4baeb3ddb09fd052ff602036988a5784fcbc9209ba1381e12eca3147f7'
 
 

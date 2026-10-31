@@ -4,7 +4,7 @@ on:
     branches: [meteornode-0.11-remote-storage]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,3 +44,12 @@ jobs:
           name: MeteorNode-0.11-RemoteStorage-debug-apk
           path: MeteorNode-0.11-RemoteStorage/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Publish installable APK to repository
+        run: |
+          mkdir -p releases
+          cp MeteorNode-0.11-RemoteStorage/app/build/outputs/apk/debug/app-debug.apk releases/MeteorNode-0.11-RemoteStorage-debug.apk
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add releases/MeteorNode-0.11-RemoteStorage-debug.apk
+          git commit -m 'build: publish MeteorNode 0.11 installable APK [skip ci]'
+          git push origin HEAD:meteornode-0.11-remote-storage

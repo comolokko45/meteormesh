@@ -33,7 +33,7 @@ worker jobs too. Scope validation prevents unrelated old/test footage reruns.
 """
 from __future__ import annotations
 import time
-from hub_workflow import DEFAULT_JOB_LEASE_SECONDS
+from hub_workflow import DEFAULT_JOB_LEASE_SECONDS, utc_now
 
 
 def recover(db, *, scope):
@@ -64,7 +64,7 @@ def recover(db, *, scope):
                     claimed_at=NULL, finished_utc=?,
                     last_error='Retry limit exhausted (previously requeued)'
                     WHERE id=? AND state='WAITING' AND attempts>=2""",
-                    (time.time(), jid))
+                    (utc_now(), jid))
                 counts['waiting_exhausted'] += cur.rowcount
             elif attempts < 2:
                 cur = db.execute("""UPDATE jobs SET state='WAITING',
@@ -76,7 +76,7 @@ def recover(db, *, scope):
                     claimed_at=NULL, finished_utc=?,
                     last_error='Retry limit exhausted after worker interruption'
                     WHERE id=? AND state='RUNNING' AND attempts>=2""",
-                    (time.time(), jid))
+                    (utc_now(), jid))
                 counts['stale_exhausted'] += cur.rowcount
         db.commit()
         return counts

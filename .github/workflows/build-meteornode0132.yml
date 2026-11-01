@@ -58,3 +58,36 @@ jobs:
             MeteorNode-0.13.2-PIN0000-source/app/build/outputs/apk/debug/app-debug.apk
             /tmp/meteor0132-sha256.txt
           if-no-files-found: error
+
+      - name: Prepare isolated test package (port 8081)
+        working-directory: MeteorNode-0.13.2-PIN0000-source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          paths = [
+            ('app/build.gradle.kts', 'applicationId = "org.meteormesh.node.compactfixedtest"', 'applicationId = "org.meteormesh.node.pin0000test8081"'),
+            ('app/src/main/java/org/meteormesh/node/LocalHttpServer.kt', 'const val PORT = 8080', 'const val PORT = 8081'),
+            ('app/src/main/java/org/meteormesh/node/MeteorLanService.kt', 'HTTP 8080', 'HTTP 8081'),
+            ('app/src/main/AndroidManifest.xml', 'android:label="MeteorNode 0.13 PIN0000"', 'android:label="MeteorNode 0.13 SAFE TEST"'),
+          ]
+          for name, old, new in paths:
+            p = Path(name)
+            s = p.read_text()
+            assert s.count(old) == 1, name
+            p.write_text(s.replace(old, new))
+          PY
+      - name: Assemble isolated test APK
+        working-directory: MeteorNode-0.13.2-PIN0000-source
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Check isolated package ID
+        working-directory: MeteorNode-0.13.2-PIN0000-source
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='org.meteormesh.node.pin0000test8081'"
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeteorNode-0.13.2-PIN0000-independent-port8081-debug
+          path: MeteorNode-0.13.2-PIN0000-source/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

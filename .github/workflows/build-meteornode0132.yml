@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android-debug-validation:
@@ -92,9 +92,36 @@ jobs:
           else
             echo "REFERENCE_UPGRADE_CHECK=BLOCKED" | tee -a "$REPORT"
             echo "::warning::Do not install over MeteorNode 0.12: reference package, versionCode, or signer is incompatible."
-            echo "Do not uninstall the old app; preserve its app-private MP4 files." | tee -a "$REPORT"
+            echo "This APK is suitable for a fresh install after intentional uninstall; uninstall deletes app-private MP4 files." | tee -a "$REPORT"
           fi
           cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish direct single APK (fresh-install only)
+        if: github.ref == 'refs/heads/meteornode-0.13.2-pin0000-test'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="MeteorNode-0.13.2-PIN0000-source/app/build/outputs/apk/debug/app-debug.apk"
+          DEST="releases/MeteorNode-0.13.2-PIN0000-debug.apk"
+          test -s "$SRC"
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$SRC" | grep -m1 "^package:")"
+          [[ "$BADGING" == *"name='org.meteormesh.node.compactfixedtest'"* ]]
+          [[ "$BADGING" == *"versionCode='15'"* ]]
+          [[ "$BADGING" == *"versionName='0.13.2-pin0000-alpha'"* ]]
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$SRC"
+          mkdir -p releases
+          cp "$SRC" "$DEST"
+          ( cd releases && sha256sum "$(basename "$DEST")" > MeteorNode-0.13.2-PIN0000-debug.apk.sha256 )
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$DEST" "$DEST.sha256"
+          if git diff --cached --quiet; then
+            echo "Single APK unchanged; no publish commit."
+          else
+            git commit -m "build: publish MeteorNode 0.13.2 single APK [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          echo "Direct APK: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/${DEST}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Fresh install only. Uninstalling old MeteorNode deletes its app-private data." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: MeteorNode-0.13.2-PIN0000-SINGLE-APP-debug

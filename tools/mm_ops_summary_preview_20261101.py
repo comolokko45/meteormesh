@@ -139,8 +139,7 @@ def review(status,backup_info,phone,systemd):
     blocking=[c for c in codes if c.startswith('BLOCKED')]
     error=any(c in ('DB_STATE_UNKNOWN_OR_READ_ERROR','CONTROL_8443_NOT_ACTIVE')
               or c.startswith('TIMER_NOT_ACTIVE:') for c in codes)
-    warning=any(c not in ('HISTORICAL_FAILED_JOBS_PRESENT',
-                          'NIGHT_NOT_FULLY_ANALYZED') for c in codes)
+    warning=any(c!='HISTORICAL_FAILED_JOBS_PRESENT' for c in codes)
     level='BLOCKED' if blocking else 'ERROR' if error else 'WARNING' if warning else 'OK'
     if not blocking and status.get('status')=='CRITICAL':level='ERROR'
     return {'level':level,'codes':codes,
@@ -158,7 +157,7 @@ def self_test():
     timers={n:{'state':'active'} for n in UNITS}
     result=review(good,{'state':'FOUND','age_hours':3.0},
                   {'state':'FIRST_OBSERVATION_PENDING'},timers)
-    assert result['level']=='OK',result
+    assert result['level']=='WARNING',result
     assert result['historical_failed_jobs']==119
     assert result['night_fully_accepted'] is False
     good['hdd']['uuid']='wrong'

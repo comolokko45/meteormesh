@@ -99,9 +99,11 @@ def center(bound):
     return str((x1+x2)//2),str((y1+y2)//2)
 
 def find_button(root,label):
+    # Android / MIUI can capitalize dialog buttons and collapse whitespace.
+    normalized=lambda value: re.sub(r'\s+',' ',value.strip()).casefold()
     matches=[n for n in root.iter('node')
              if n.get('class')=='android.widget.Button'
-             and n.get('text','').strip()==label]
+             and normalized(n.get('text',''))==normalized(label)]
     if len(matches)!=1:raise SetupError('EXPECTED_BUTTON_NOT_VISIBLE: '+label)
     n=matches[0]
     if n.get('enabled')=='false':raise SetupError('BUTTON_DISABLED: '+label)
@@ -142,8 +144,10 @@ def pair_and_arm(code,serial):
     # password input exists; do NOT extract its value or log it.
     if edits[1].get('password')!='true':
         raise SetupError('PAIRING_PASSWORD_FIELD_NOT_MASKED')
+    # The Android keyboard can move the dialog; use CURRENT button bounds.
+    root=dump(serial)
     press(serial,find_button(root,'Kaydet'))
-    time.sleep(0.6)
+    time.sleep(0.8)
     root=dump(serial)
     press(serial,find_button(root,'1  LAN + UZAKTAN KONTROLU HAZIRLA'))
     print('PAIRING_UI_SAVED_AND_LAN_ARM_BUTTON_PRESSED',flush=True)

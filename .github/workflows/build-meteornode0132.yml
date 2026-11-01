@@ -52,11 +52,55 @@ jobs:
           test -s app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "org.meteormesh.node.compactfixedtest"
           sha256sum app/build/outputs/apk/debug/app-debug.apk | tee /tmp/meteor0132-sha256.txt
+      - name: Upgrade signing compatibility audit (read-only, no install)
+        working-directory: MeteorNode-0.13.2-PIN0000-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD_APK="$GITHUB_WORKSPACE/releases/MeteorNode-0.12-SingleCopy-debug.apk"
+          NEW_APK="app/build/outputs/apk/debug/app-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          REPORT=/tmp/meteor0132-upgrade-audit.txt
+          test -s "$OLD_APK"
+          test -s "$NEW_APK"
+          pkg_line() { "$AAPT" dump badging "$1" | grep -m1 '^package:'; }
+          pkg_name() { pkg_line "$1" | sed -n "s/.*name='\\([^']*\\)'.*/\\1/p"; }
+          version_code() { pkg_line "$1" | sed -n "s/.*versionCode='\\([0-9]*\\)'.*/\\1/p"; }
+          cert_sha256() { "$APKSIGNER" verify --print-certs "$1" | awk '/Signer #1 certificate SHA-256 digest:/ {print $6; exit}'; }
+          old_pkg="$(pkg_name "$OLD_APK")"
+          new_pkg="$(pkg_name "$NEW_APK")"
+          old_ver="$(version_code "$OLD_APK")"
+          new_ver="$(version_code "$NEW_APK")"
+          old_cert="$(cert_sha256 "$OLD_APK")"
+          new_cert="$(cert_sha256 "$NEW_APK")"
+          test -n "$old_pkg" && test -n "$new_pkg" && test -n "$old_ver" && test -n "$new_ver"
+          test -n "$old_cert" && test -n "$new_cert"
+          {
+            echo "REFERENCE: repository MeteorNode-0.12-SingleCopy-debug.apk (NOT a device certificate)"
+            echo "old_package=$old_pkg"
+            echo "new_package=$new_pkg"
+            echo "old_versionCode=$old_ver"
+            echo "new_versionCode=$new_ver"
+            echo "old_signer_sha256=$old_cert"
+            echo "new_signer_sha256=$new_cert"
+            sha256sum "$OLD_APK" "$NEW_APK"
+          } | tee "$REPORT"
+          if [[ "$old_pkg" == "$new_pkg" && "$old_pkg" == 'org.meteormesh.node.compactfixedtest' && "$old_ver" =~ ^[0-9]+$ && "$new_ver" =~ ^[0-9]+$ ]] && (( 10#$new_ver > 10#$old_ver )) && [[ "$old_cert" == "$new_cert" ]]; then
+            echo "REFERENCE_UPGRADE_CHECK=PASS" | tee -a "$REPORT"
+            echo "Verify the certificate of the APK actually installed on each phone before upgrading." | tee -a "$REPORT"
+          else
+            echo "REFERENCE_UPGRADE_CHECK=BLOCKED" | tee -a "$REPORT"
+            echo "::warning::Do not install over MeteorNode 0.12: reference package, versionCode, or signer is incompatible."
+            echo "Do not uninstall the old app; preserve its app-private MP4 files." | tee -a "$REPORT"
+          fi
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: MeteorNode-0.13.2-PIN0000-SINGLE-APP-debug
           path: |
             MeteorNode-0.13.2-PIN0000-source/app/build/outputs/apk/debug/app-debug.apk
             /tmp/meteor0132-sha256.txt
+            /tmp/meteor0132-upgrade-audit.txt
           if-no-files-found: error
 

@@ -50,6 +50,7 @@ jobs:
         working-directory: MeteorNode-0.13.2-PIN0000-source
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "org.meteormesh.node.compactfixedtest"
           sha256sum app/build/outputs/apk/debug/app-debug.apk | tee /tmp/meteor0132-sha256.txt
       - uses: actions/upload-artifact@v4
         with:

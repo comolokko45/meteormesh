@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light"><title>MeteorMesh Monitor</title>
+<style>
+:root{--bg:#10151d;--panel:#19222d;--panel2:#202c39;--text:#edf3f7;--muted:#9fb0bf;--line:#334250;--accent:#73d2b5;--warn:#f2c66d;--bad:#ff8585;--good:#65d6a3;--shadow:0 12px 32px #0003}
+:root[data-theme="light"]{--bg:#eef2f4;--panel:#fff;--panel2:#f2f6f7;--text:#17232d;--muted:#566776;--line:#d3dde2;--accent:#087e67;--warn:#9c6500;--bad:#b32d34;--good:#087e54;--shadow:0 8px 22px #18303b14}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}button{font:inherit;color:inherit;cursor:pointer}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:38px;height:38px;border-radius:12px;background:var(--accent);color:#08261e;display:grid;place-items:center;font-weight:900}.brand h1{font-size:18px;margin:0}.brand small{color:var(--muted)}
+.topright{display:flex;align-items:center;gap:9px}.updated{color:var(--muted);font-size:12px;text-align:right}.iconbtn,.refresh{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 12px}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 67px)}nav{padding:16px 12px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;gap:5px}
+.navbtn{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:9px;color:var(--muted)}.navbtn:hover,.navbtn.active{background:var(--panel2);color:var(--text)}.navbtn.active{box-shadow:inset 3px 0 var(--accent)}
+main{padding:24px;max-width:1500px;width:100%;margin:0 auto}.pagehead{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:18px}.pagehead h2{margin:0 0 4px;font-size:25px}.pagehead p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);min-width:0}.card h3{margin:0 0 11px;font-size:16px}.metric{font-size:26px;font-weight:750;letter-spacing:-.03em}.label,.muted{color:var(--muted);font-size:13px}.sub{color:var(--muted);font-size:12px;margin-top:4px}.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.stack{display:grid;gap:12px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 9px;font-size:12px;white-space:nowrap}.chip:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}.chip.good{color:var(--good)}.chip.good:before{background:var(--good)}.chip.warn{color:var(--warn)}.chip.warn:before{background:var(--warn)}.chip.bad{color:var(--bad)}.chip.bad:before{background:var(--bad)}.chip.neutral{color:var(--muted)}
+.phonehead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.phonehead h3{font-size:19px}.channels{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}.channel{background:var(--panel2);border-radius:9px;padding:8px;font-size:12px}.channel b{display:block;margin-bottom:4px}.kv{display:grid;grid-template-columns:minmax(110px,1fr) 1.25fr;gap:6px 12px;font-size:13px}.kv span:nth-child(odd){color:var(--muted)}
+.timeline{min-height:14px;background:var(--panel2);border-radius:99px;overflow:hidden;display:flex;gap:2px;padding:2px}.seg{flex:1;background:var(--good);border-radius:99px;min-width:3px}.seg-waiting,.seg-no_job{background:var(--warn)}.seg-running{background:var(--accent)}.seg-failed{background:var(--bad)}.seg-succeeded{background:var(--good)}.timelinelabels{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin:5px 0 12px}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}.table th{color:var(--muted);font-weight:600}.scroll{overflow:auto;max-height:440px}.notice{border-left:4px solid var(--warn);background:var(--panel2);padding:13px 15px;border-radius:8px;margin:12px 0}.notice.bad{border-color:var(--bad)}.notice.good{border-color:var(--good)}
+.list{margin:0;padding-left:20px}.list li{padding:4px 0}.mono{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.small{font-size:12px}.empty{color:var(--muted);padding:15px 0}.foot{color:var(--muted);font-size:12px;margin-top:18px}.progress{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden}.progress i{display:block;height:100%;background:var(--accent);border-radius:99px}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:190px minmax(0,1fr)}main{padding:18px}}
+@media(max-width:720px){.top{padding:10px 12px}.updated{display:none}.layout{display:block}nav{position:sticky;top:63px;z-index:4;border-right:0;border-bottom:1px solid var(--line);display:flex;flex-direction:row;overflow:auto;padding:7px;gap:4px}.navbtn{white-space:nowrap;padding:8px 10px;font-size:13px}.navbtn.active{box-shadow:inset 0 -3px var(--accent)}main{padding:15px 12px}.grid,.grid.two{grid-template-columns:1fr}.channels{grid-template-columns:repeat(3,1fr)}.pagehead h2{font-size:21px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand"><div class="logo">MM</div><div><h1>MeteorMesh Monitor</h1><small>Salt-okunur sistem görünümü · RC215</small></div></div>
+<div class="topright"><div class="updated">SON GÜNCELLEME<br><strong id="updated">Yükleniyor…</strong></div><button class="iconbtn" id="theme">◐ Tema</button><button class="refresh" id="refresh">↻ Yenile</button></div></header>
+<div class="layout"><nav id="nav"></nav><main id="main"><div class="empty">G62'den salt-okunur durum alınıyor…</div></main></div>
+<script>
+var pages=[["overview","Genel Durum"],["phones","Telefonlar"],["night","Gece Kayıtları"],["analysis","Meteor Analizi"],["candidates","Meteor Adayları"],["transfer","Aktarım ve Dosyalar"],["cleanup","Otomatik Temizlik"],["autopilot","AutoPilot ve Hatalar"],["system","G62 Sistem Sağlığı"],["calendar","Otomasyon Takvimi"],["reports","Günlük Raporlar"],["progress","Final İlerleme"]];
+var state=null,current="overview";
+function $(id){return document.getElementById(id)}
+function esc(v){return String(v==null?"—":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function fmt(v){return v==null?"Bilinmiyor":new Intl.NumberFormat("tr-TR").format(v)}
+function date(v){if(!v)return "Bilinmiyor";var d=new Date(v);return isNaN(d)?"Bilinmiyor":d.toLocaleString("tr-TR")}
+function duration(s){if(s==null)return "Bilinmiyor";s=Math.max(0,Number(s));var h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+" sa "+m+" dk":m+" dk"}
+function gib(b){return b==null?"Bilinmiyor":(Number(b)/1024/1024/1024).toLocaleString("tr-TR",{maximumFractionDigits:2})+" GiB"}
+function chip(text,kind){return '<span class="chip '+(kind||"neutral")+'">'+esc(text)+'</span>'}
+function metric(label,value,sub){return '<div class="card"><div class="label">'+esc(label)+'</div><div class="metric">'+esc(value)+'</div><div class="sub">'+esc(sub||"")+'</div></div>'}
+function statusKind(v){v=String(v||"").toUpperCase();if(["ONLINE","CONNECTED","RECORDING","OK","PASS","CURRENT","READY","SUCCEEDED","NORMAL"].indexOf(v)>=0)return "good";if(["STALE","UNKNOWN","PARTIAL","ARMED_IDLE","WAITING","WARNING","REVIEW","NEEDS_REARM","VERİ GÜNCEL DEĞİL"].indexOf(v)>=0)return "warn";if(["OFFLINE","FAILED","CRITICAL","ERROR","UNAVAILABLE","BLOCKED"].indexOf(v)>=0)return "bad";return "neutral"}
+function kv(rows){return '<div class="kv">'+rows.map(function(x){return '<span>'+esc(x[0])+'</span><span>'+esc(x[1])+'</span>'}).join("")+'</div>'}
+function header(title,desc){return '<div class="pagehead"><div><h2>'+esc(title)+'</h2><p>'+esc(desc)+'</p></div></div>'}
+function deviceName(id){return ({"cam-ruby":"Ruby","cam-surya":"Surya","cam-viva":"Viva"})[id]||id}
+function phoneCards(){return (state.phones||[]).map(function(p){
+ var last=p.last_mp4?date(Number(p.last_mp4)):"Bilinmiyor";
+ return '<article class="card"><div class="phonehead"><div><h3>'+esc(p.name)+' <span class="muted">· '+esc(p.model||"model bilinmiyor")+'</span></h3><div class="muted">'+esc(p.ip||"IP bilinmiyor")+(p.api_port?":"+esc(p.api_port):"")+' · '+esc(p.app_version||"APK bilinmiyor")+'</div></div>'+chip(p.camera,statusKind(p.camera))+'</div>'+
+ '<div class="channels"><div class="channel"><b>HTTP API</b>'+chip(p.http,statusKind(p.http))+'</div><div class="channel"><b>Control-013</b>'+chip(p.control,statusKind(p.control))+'<div class="sub">Son: '+esc(date(p.control_seen))+'</div></div><div class="channel"><b>ADB bakım</b>'+chip(p.adb,statusKind(p.adb))+'</div></div>'+
+ kv([["Kamera hazır",p.camera_ready==null?"Bilinmiyor":p.camera_ready?"Evet":"Hayır"],["Aktif segment",p.segment_id||"Yok"],["Son tamamlanmış MP4",last],["READY segment",p.ready_segments],["Telefon boş alanı",p.free_gib==null?"Bilinmiyor":Number(p.free_gib).toFixed(1)+" GiB"],["Koruma rezervi",p.reserve_gib+" GiB"],["Rezerv durumu",p.reserve_ok==null?"Bilinmiyor":p.reserve_ok?"Uygun":"Düşük"],["Sınır kabulü",p.boundary_verified==null?"Henüz yok":p.boundary_verified?"Doğrulandı":"Doğrulanmadı"]])+
+ '<div class="sub">HTTP son başarılı: '+esc(date(p.http_seen))+' · Control heartbeat: '+esc(p.control_age_seconds==null?"Bilinmiyor":p.control_age_seconds+" sn önce")+' · Segment hedefi: '+esc(p.segment_target_ms==null?"Bilinmiyor":(p.segment_target_ms/1000)+" sn")+'</div></article>'
+}).join("")}
+function overview(){
+ var n=state.night||{},q=(n.capture_analysis||{}).queue||{},carry=n.carryover||{},sys=state.system||{},f=state.freshness||{},o=state.overall||{},seg=state.segments||{},scope=n.analysis_scope_file||{};
+ var recording=(state.phones||[]).filter(function(p){return String(p.camera).toLowerCase()==="recording"}).length;
+ var actual=(state.phones||[]).filter(function(p){return p.last_mp4}).length;
+ var online=(state.phones||[]).filter(function(p){return p.http==="ONLINE"}).length;
+ var segs=state.segments||{},count=Object.values(segs.devices||{}).reduce(function(a,x){return a+(x.verified||0)},0);
+ return header("Genel Durum","Cihaz, kayıt, aktarım, analiz ve disk özeti.")+
+ '<div class="notice '+(f.state==="STALE"?"bad":"good")+'"><b>'+esc(o.level||"BİLİNMİYOR")+'</b> · Kaynak '+(f.state==="STALE"?"eski veya erişilemiyor":"güncel")+' · Son kaynak: '+esc(date(f.http_last_success_utc))+' · '+esc(f.heartbeat_age_seconds==null?"yaş bilinmiyor":duration(f.heartbeat_age_seconds)+" önce")+'</div>'+
+ '<div class="grid">'+metric("Kayıt durumundaki telefon",recording+"/3","Kamera durum özeti")+metric("MP4 ilerlemesi görülen cihaz",actual+"/3","Son tamamlanmış segment göstergesi")+metric("HTTP API çevrimiçi",online+"/3","ADB'den bağımsız")+metric("Doğrulanmış bu-gece segmenti",count,"SQLite INGEST_VERIFIED")+
+  metric("Aktif kayıt gecesi",seg.night_id||"Bilinmiyor",fmt(seg.expected_completed_segments)+" beklenen tamamlanmış segment/cihaz")+metric("Aktif gece analiz kuyruğu",fmt(q.WAITING||0)+" bekliyor",fmt(q.SUCCEEDED||0)+" başarılı · "+fmt(q.FAILED||0)+" başarısız")+metric("Analiz scope dosyası",scope.night_id||"Bilinmiyor",n.scope_matches_capture?"Kayıt gecesiyle aynı":"Kapsam yenilemesi bekliyor")+metric("Son rapor kapsamı",n.reported_night_id||n.night_id||"Bilinmiyor",n.outcome||"")+metric("Tarihsel taşıma kuyruğu",fmt(carry.FAILED)+" eski FAILED",fmt(carry.WAITING)+" source-missing WAITING")+metric("HDD boş alanı",sys.hdd_free_gib==null?"Bilinmiyor":Number(sys.hdd_free_gib).toFixed(1)+" GiB","UUID: "+(sys.hdd_uuid_expected?"uygun":"kontrol gerekli"))+'</div>'+ 
+ '<div class="stack grid two"><section class="card"><h3>Telefonların anlık görünümü</h3>'+(state.phones||[]).map(function(p){return '<div class="row"><b>'+esc(p.name)+'</b>'+chip(p.camera,statusKind(p.camera))+'<span class="muted">HTTP '+esc(p.http)+' · ADB '+esc(p.adb)+'</span></div>'}).join("")+'</section>'+
+ '<section class="card"><h3>Veri ve güvenlik</h3>'+kv([["Son aktarım",n.finished_utc?date(n.finished_utc):"Yok"],["Doğrulanmış telefon purge",fmt((n.phone_purge||{}).deleted_video_count)],["Belirsiz telefon purge fişi",(n.phone_purge||{}).unresolved_attempt_count==null?"Bilinmiyor":fmt((n.phone_purge||{}).unresolved_attempt_count)],["Purge fişi okuma hatası",(n.phone_purge||{}).receipt_parse_errors==null?"Bilinmiyor":fmt((n.phone_purge||{}).receipt_parse_errors)],["HDD RAW silme",fmt((n.hdd_cleanup||{}).deleted_video_count)],["HDD temizleme politikası",(n.hdd_cleanup||{}).auto_delete_enabled?"Etkin":"Kapalı / güvenlik doğrulaması bekliyor"],["Son SQLite yedeği",(state.backup||{}).name||"Bilinmiyor"],["Açık hata kodları",(o.codes||[]).join(", ")||"Yok"]])+'</section></div>'+ 
+ '<div class="foot">Snapshot kaynağı yaklaşık 5 dakikada bir güncellenir. ADB, HTTP ve Control-013 ayrı göstergelerdir.</div>'
+}
+function phones(){return header("Telefonlar","HTTP, Control-013, ADB, segment ve depolama ayrı gösterilir.")+'<div class="grid two">'+phoneCards()+'</div><div class="notice">ADB kopması MeteorNode hizmetinin kapandığı anlamına gelmez. Kayıt ayrıca HTTP ve Control-013 ile izlenir.</div>'}
+function night(){
+ var d=state.segments||{},dev=d.devices||{};
+ return header("Gece Kayıtları","Aktif 19:00–05:00 TRT penceresinde G62'nin doğruladığı tüm MP4 başlangıçları ve analiz işleri.")+ 
+  '<div class="notice '+(((d.gaps||[]).some(function(g){return g.kind!=="TRAILING_UNVERIFIED"}))?"bad":((d.gaps||[]).length?"":"good"))+'">Kayıt gecesi '+esc(d.night_id||"Bilinmiyor")+' · Pencere '+esc(date(d.window_start_local))+' – '+esc(date(d.window_end_local))+' · Gözlem '+esc(date(d.observed_until_local))+' · SQLite '+esc(d.state||"Bilinmiyor")+' · G62’de doğrulanmamış aralık, tek başına telefonda kayıt kaybı kanıtı değildir; aktarım/telefon manifestiyle ayırt edilir.</div><div class="stack">'+["cam-ruby","cam-surya","cam-viva"].map(function(id){
+ var x=dev[id]||{verified:0,bytes:0,segments:[]};
+  var rows=(x.segments||[]).slice().reverse().map(function(s){return '<tr><td>'+esc(date(s.start_local))+'</td><td>'+esc(s.duration_seconds==null?"Bilinmiyor":s.duration_seconds+" sn")+'</td><td>'+esc(gib(s.size_bytes))+'</td><td>'+esc(s.state)+'</td><td>'+chip(s.analysis_state||"NO_JOB",statusKind(s.analysis_state))+'</td><td class="mono">'+esc(s.segment_id)+'</td></tr>'}).join("");
+  var color=function(s){return "seg seg-"+String(s.analysis_state||"no_job").toLowerCase()};
+  return '<section class="card"><div class="row"><h3>'+esc(deviceName(id))+'</h3>'+chip(x.verified+" doğrulanmış segment",x.verified?"good":"warn")+'<span>'+esc(gib(x.bytes))+'</span></div><div class="timeline">'+(x.segments||[]).map(function(s){return '<span class="'+color(s)+'" title="'+esc(s.start_local+" · "+s.analysis_state+" · "+s.segment_id)+'"></span>'}).join("")+'</div><div class="timelinelabels"><span>19:00 TRT</span><span>'+esc(x.verified)+" / "+esc(x.expected_completed_segments)+" doğrulanmış / beklenen · "+esc(x.not_yet_verified_vs_expected)+" henüz G62'de yok"+'</span><span>05:00 TRT</span></div>'+ 
+  (rows?'<div class="scroll"><table class="table"><thead><tr><th>Başlangıç</th><th>Süre</th><th>Boyut</th><th>Dosya</th><th>Analiz işi</th><th>Segment</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">Bu gece için G62’ye doğrulanmış MP4 yok.</div>')+'</section>'
+}).join("")+'</div>'+
+  ((d.gaps||[]).length?'<div class="card"><h3>G62’de doğrulanmamış zaman aralıkları</h3>'+(d.gaps||[]).map(function(g){var title=g.kind==="TRAILING_UNVERIFIED"?"Son segment/aktarım henüz doğrulanmadı":g.kind==="WINDOW_START_DELAY"?"İlk segment geç görünüyor":"Segment başlangıçları arasında aralık";return '<div class="row">'+esc(deviceName(g.device_id))+' · '+esc(title)+': '+esc(date(g.from_local))+' → '+esc(date(g.to_local))+' · başlangıç aralığı '+esc(g.interval_seconds)+' sn · HDD’de temsil edilmeyen yaklaşık süre '+esc(g.missing_seconds)+' sn</div>'}).join("")+'<div class="sub">Ara boşluğu kayıt kaybı diye sınıflandırmak için telefon READY manifesti ve sync fişi eşleştirilmelidir.</div></div>':'<div class="notice good">Mevcut G62 doğrulanmış MP4 başlangıçlarında 360 saniyeyi aşan aralık görünmüyor. Bu, tam gece kabulü değildir.</div>')
+}
+function analysis(){
+ var n=state.night||{},q=(n.capture_analysis||{}).queue||{},c=n.carryover||{},d=n.detector||{},ex=state.analysis_execution||{},src=ex.source||{},bk=ex.backup||{},done=Number(q.SUCCEEDED||0)+Number(q.FAILED||0),total=done+Number(q.WAITING||0)+Number(q.RUNNING||0),pct=total?Math.round(done*100/total):0,scope=n.analysis_scope_file||{},gates=((state.automation_runs||{}).natural_timer_gates||{}),pg=gates.predawn||{},ag=gates.analysis_drain||{};
+ var runLabel=ex.state==="SKIPPED_NO_SOURCE"?"Atlandı · MP4 kaynağı yok":ex.state==="SKIPPED_PRECONDITION"?"Atlandı · önkoşul":ex.state==="RUNNING"?"Çalışıyor":ex.state==="COMPLETED"?"Tamamlandı":ex.state==="FAILED"?"Hata":"Bilinmiyor";
+ return header("Meteor Analizi","Yeni gece, source-missing ve tarihsel işler birbirinden ayrı.")+
+  '<div class="notice '+(n.scope_matches_capture?"good":((n.capture_analysis||{}).state==="AWAITING_PREDawn_SCOPE"?"":"bad"))+'">Aktif kayıt gecesi: '+esc(n.capture_night_id||"Bilinmiyor")+' · night-scope dosyası: '+esc(scope.night_id||"Bilinmiyor")+' · '+esc((n.capture_analysis||{}).state||"durum bilinmiyor")+(n.capture_analysis&&n.capture_analysis.scope_rotation_due_local?" · kapsam yenileme hedefi "+date(n.capture_analysis.scope_rotation_due_local):"")+'. '+(n.scope_matches_capture?"Kapsamlar eşleşiyor.":((n.capture_analysis||{}).state==="AWAITING_PREDawn_SCOPE"?"Bu fark 05:30 predawn kapsam yenilemesi beklenirken normal; aktif gece analiz işleri bekliyor.":"Beklenen kapsam yenileme zamanı geçti; scope dosyası güncel değil."))+'</div>'+ 
+  '<div class="grid">'+metric("Son analyzer turu",runLabel,date(ex.last_event_local))+metric("Turun NightScope’u",src.night_id||"Günlük kayıtta yok",ex.systemd_result||"")+metric("Turda kaynak MP4",src.source_ready_jobs==null?"Bilinmiyor":fmt(src.source_ready_jobs),src.source_missing_jobs==null?"Kaynak eksik sayısı yok":fmt(src.source_missing_jobs)+" kaynak eksik")+metric("Skip sonrası SQLite yedeği",bk.state||"Bilinmiyor",bk.name||"")+metric("Son operasyon raporu",n.reported_night_id||n.night_id||"Bilinmiyor",n.outcome||"")+metric("Aktif gece işleri",fmt(total),fmt(q.RUNNING||0)+" çalışıyor")+metric("Aktif gece tamamlanan",fmt(done),pct+"% bu kapsam içinde")+metric("Tarihsel FAILED",fmt(c.FAILED||0),"Yeni gece hatası değildir")+metric("Kaynak eksik bekleyen",fmt(c.WAITING||0),"Ayrı carryover")+metric("Aktif gece aday çıktısı",fmt(d.detector_result_items_unreviewed),"Analiz raporu bu geceyle eşleşmeli")+metric("Aktif gece sonuç dosyaları",fmt(d.verified_result_files||0),d.analysis_complete?"Tamamlandı":"Henüz tamamlanmadı")+metric("SQLite",state.system.sqlite_state||"Bilinmiyor",fmt(state.system.sqlite_jobs)+" iş · "+fmt(state.system.sqlite_segments)+" segment")+'</div>'+ 
+  '<div class="stack grid two"><div class="card"><h3>Aktif kayıt gecesi iş durumu</h3>'+kv([["WAITING",fmt(q.WAITING)],["RUNNING",fmt(q.RUNNING)],["SUCCEEDED",fmt(q.SUCCEEDED)],["FAILED",fmt(q.FAILED)],["Segmenti var, işi yok",fmt(q.NO_JOB_SEGMENTS)],["Carryover WAITING",fmt(c.WAITING)],["Carryover FAILED",fmt(c.FAILED)],["Eski işler ayrı",n.historical_queue_excluded?"Evet":"Rapor kanıtı yok"]])+'</div><div class="card"><h3>Çalışma sırası</h3><p>05:30 TRT predawn sync ve kapsam yenilemesi sonrası analyzer başlar. 15 dakikalık turlar kuyruğu sürdürür. Kaynağı eksik işler ayrı raporlanır; 09:00 timer isteğe bağlıdır ve kapalı tutulur.</p><p class="muted">05:30 başlangıç: '+esc(pg.status||"VERİ YOK")+' · '+esc(pg.evidence||"Günlük kanıt yok")+'<br>Analiz kuyruğu: '+esc(ag.status||"VERİ YOK")+' · '+esc(ag.evidence||"Günlük kanıt yok")+'</p></div></div>'
+}
+function candidates(){
+ var n=state.night||{},d=n.detector||{},v=d.detector_result_items_unreviewed;
+ return header("Meteor Adayları","Detector çıktısı adaydır; doğrulanmış meteor sayılmaz.")+
+  '<div class="notice '+(d.analysis_complete?"good":"bad")+'">Kayıt gecesi: '+esc(n.capture_night_id||"Bilinmiyor")+' · Sonuç gecesi: '+esc(n.reported_night_id||"Bilinmiyor")+' · Analiz: '+esc(d.state||"Bilinmiyor")+' · Tamamlandı: '+esc(d.analysis_complete?"Evet":"Hayır")+' · İncelenmemiş çıktı: '+esc(v==null?"Bilinmiyor":v)+'. '+(d.analysis_complete?"":"Eşleşen gece analizi tamamlanmadan sıfır aday, meteor yok demek değildir.")+'</div>'+ 
+ '<div class="grid">'+metric("Doğrulanmış meteor","BİLİNMİYOR","İnsan incelemesi olmadan doğrulanmaz")+metric("Detector aday çıktısı",fmt(v),"Geçici adaylar")+metric("Sonuç hash/bütünlük hatası",fmt(d.invalid_or_missing_result_files||0),"JSON/SHA kontrolü")+metric("Üç cihaz kapsamı",d.three_device_coverage_proven?"Kanıtlandı":"Eksik","")+'</div>'+
+  '<div class="card stack"><h3>Koruma kuralı</h3><p>Source-missing kayıtlar review-required kalır. İç mekân testleri meteor sayılmaz. Aday veya şüpheli kayıtlar korunur; ham videolar bu sayfa yenilendiğinde çözülmez.</p><div class="empty">'+(d.state==="NO_MATCHING_CAPTURE_NIGHT_REPORT"?"Aktif kayıt gecesi için eşleşen analiz raporu yok; aday sayısı bilinmiyor.":"İncelenmeye hazır olay yok veya bu gece analizi henüz sonuç üretmedi.")+'</div></div>'
+}
+function transfer(){
+ var n=state.night||{},cov=n.device_coverage||{},pur=n.phone_purge||{},d=state.segments||{},ds=d.devices||{};
+ return header("Aktarım ve Dosyalar","Son sync, doğrulanmış ingest ve telefon kopyası fişleri.")+
+ '<div class="grid">'+metric("Son aktarım",n.outcome||"Yok",date(n.finished_utc))+metric("Bu tur doğrulanan",fmt(n.sync_good||0),fmt(n.jobs_enqueued||0)+" analiz işi")+metric("Aktarım hatası",fmt(n.sync_pending_or_failed||0),"Son rapor")+metric("Telefon kopyası temizliği",fmt(pur.deleted_video_count||0),"Fişli; HDD kopyası ayrı")+metric("Belirsiz purge",pur.unresolved_attempt_count==null?"Bilinmiyor":fmt(pur.unresolved_attempt_count),Number(pur.unresolved_attempt_count||0)>0?"Yalnız bu segment karantinada":"Belirsiz fiş yok")+metric("Purge fişi okuma hatası",pur.receipt_parse_errors==null?"Bilinmiyor":fmt(pur.receipt_parse_errors),"Receipt bütünlüğü")+'</div>'+
+ '<div class="stack grid two"><div class="card"><h3>Cihaz kapsamı</h3>'+kv([["Ruby",fmt(cov["cam-ruby"])+" doğrulanmış"],["Surya",fmt(cov["cam-surya"])+" doğrulanmış"],["Viva",fmt(cov["cam-viva"])+" doğrulanmış"]])+'</div><div class="card"><h3>HDD ve SQLite</h3>'+kv([["Mount UUID",state.system.hdd_uuid||"Bilinmiyor"],["UUID eşleşmesi",state.system.hdd_uuid_expected?"Evet":"Hayır/bilinmiyor"],["HDD boş alanı",state.system.hdd_free_gib==null?"Bilinmiyor":Number(state.system.hdd_free_gib).toFixed(1)+" GiB"],["SQLite segmentleri",fmt(state.system.sqlite_segments)],["Son quick_check",state.system.sqlite_state]])+'</div></div>'+
+ '<div class="notice">Akış: READY → TRANSFERRING → INGEST_VERIFIED → ANALYZED → KEEP / REVIEW / RETIRED. Range resume kodu mevcut; canlı kesinti sonrası kabul bekliyor.</div>'+
+ '<div class="card"><h3>Bu gece doğrulanmış segmentler</h3>'+["cam-ruby","cam-surya","cam-viva"].map(function(id){return '<div class="row">'+esc(deviceName(id))+'<span>'+esc(fmt((ds[id]||{}).verified||0))+' segment · '+esc(gib((ds[id]||{}).bytes||0))+'</span></div>'}).join("")+'</div>'
+}
+function cleanup(){
+ var n=state.night||{},c=n.hdd_cleanup||{},disp=state.system.dispositions||{},total=Object.values(disp).reduce(function(a,x){return a+Number(x||0)},0);
+ return header("Otomatik Temizlik","Yalnız analizi doğrulanmış negatif videolar, sınırlı ve izlenebilir kurallarla temizlenir. Bu ekranda silme düğmesi yok.")+
+  '<div class="notice '+(c.auto_delete_enabled?"good":"bad")+'"><b>HDD otomatik silme '+(c.auto_delete_enabled?"ETKİN":"KAPALI / DOĞRULANAMADI")+'</b> · '+esc(c.state||"durum bilinmiyor")+' · analiz kancası başına üst sınır: '+esc(c.max_deletes_per_analysis_hook||"Bilinmiyor")+' · etkinleşme: '+esc(date(c.auto_delete_enabled_utc))+' · son analiz raporu: '+esc(n.reported_night_id||"Bilinmiyor")+'</div>'+ 
+ '<div class="grid">'+metric("Pilot / güvenlik",c.software_status||"Bilinmiyor",c.software_evidence||"Kanıt yok")+metric("Etkinleştirme sonrası doğal çalışma",c.operations_status||"Bilinmiyor",c.operations_evidence||"Kanıt yok")+metric("HDD’den silinen",fmt(state.system.deleted_hdd_files||0),gib(state.system.deleted_hdd_bytes||0)+" açılmış alan")+metric("Son global silme fişi",date(c.last_deleted_utc),"SQLite tombstone kaydı")+'</div>'+ 
+ '<div class="stack grid two"><section class="card"><h3>Karar kapıları</h3><ul class="list"><li>Yalnız başarılı analiz ve SHA / ffprobe doğrulaması geçen negatif MP4 aday olur.</li><li>Üç kameranın eşleşen zaman kapsamı ve komşu segment kontrolleri tamamlanmalıdır.</li><li>Meteor adayı, şüpheli, eksik kaynak ve hatalı kayıtlar korunur; tombstone silinen MP4’ü yeniden kuyruğa almayı engeller.</li><li>SQLite yedeği PASS olmadan uygulama adımı çalışmaz; parti başına en fazla 5, tur başına en fazla 2 parti (10 dosya). Her parti öncesinde yeni yedek doğrulanır.</li><li>Etkinleştirme sonrası ilk doğal analiz kancası henüz silme yapmadıysa durum PARTIAL görünür.</li></ul></section><section class="card"><h3>Disposition durumları</h3>'+(Object.keys(disp).length?kv(Object.entries(disp).map(function(x){return [x[0],fmt(x[1])]})):'<div class="empty">Henüz terminal HDD disposition yok.</div>')+'<div class="sub">Monitör salt-okunurdur; silme işlemi başlatmaz.</div></section></div>'
+}
+function policyPanel(alerts){
+ var p=alerts.autopilot||{},v=p.storage||{},texts={DELEGATED:"Mevcut servis yönetiyor",BLOCKED:"Kanıt yetersiz",SHADOW_RETRY:"Yeniden deneme önerisi · uygulanmadı",NEEDS_REARM:"Telefonda yeniden hazırlama gerekiyor",NEEDS_REVIEW:"İnceleme gerekiyor",EXPECTED_WAIT:"Planlanan saati bekliyor",IDLE:"Bekleyen iş yok"};
+ return '<section class="card"><h3>Karar ve sonuç takibi</h3><p>Yeni kararlar gözlem modunda. Komut göndermez. Son gözlem: '+esc(date(p.observed_utc))+'</p><ul class="list">'+(p.decisions||[]).map(function(x){return '<li>'+esc(x.target)+' · '+esc(texts[x.state]||x.state)+'</li>'}).join('')+'</ul><h3>Telefon alanı doğrulaması</h3>'+kv(Object.entries(v).map(function(x){var r=x[1];return [x[0],(r.free/1073741824).toFixed(2)+' GiB · '+(r.verification==='PURGE_AND_SPACE_INCREASE_OBSERVED'?'Telefon temizliği sonrası alan artışı görüldü':r.verification==='PURGE_SEEN_SPACE_NOT_INCREASED'?'Temizlik fişi var; örnekler arasında alan artışı yok':'Alan artışı için karşılaştırılabilir kanıt bekleniyor')]}))+'<h3>Son düzelmeler</h3><ul class="list">'+(alerts.recent_recoveries||[]).map(function(r){return '<li>'+esc(r.code)+' · '+esc(date(r.resolved_utc))+' · '+esc(r.duration_seconds==null?'süre bilinmiyor':r.duration_seconds+' sn')+'</li>'}).join('')+'</ul><p class="muted">Uyarılar APK içi ve yerel günlükte. Dış bildirim kapalı.</p></section>';
+}
+function autopilot(){
+ var a=state.auto_recovery||{},o=state.overall||{},alerts=state.ops_alerts||{},active=alerts.active||[];
+ return header("AutoPilot ve Hatalar","Mevcut hata sınıflandırma ve güvenli toparlama sınırları.")+
+ policyPanel(alerts)+
+ '<div class="grid">'+metric("HTTP API",fmt((state.phones||[]).filter(function(p){return p.http==="ONLINE"}).length)+"/3","ADB’den bağımsız")+metric("Control heartbeat",fmt((state.phones||[]).filter(function(p){return p.control==="ONLINE"}).length)+"/3","Stale yaşı cihaz panelinde")+metric("ADB bakım",fmt((state.phones||[]).filter(function(p){return p.adb==="CONNECTED"}).length)+"/3","Kayıt servisi kararı değildir")+metric("OpsJournal kodları",(o.codes||[]).join(", ")||"Yok","Özet sınıfları")+'</div>'+
+  '<div class="stack grid two"><section class="card"><h3>Mevcut otomatik toparlama politikası</h3>'+kv(Object.entries(a))+'</section><section class="card"><h3>Açık OpsJournal uyarıları</h3>'+(active.length?'<ul class="list">'+active.map(function(x){return '<li>'+esc(JSON.stringify(x))+'</li>'}).join("")+'</ul>':'<div class="empty">Açık alarm yok. OpsJournal kaynağı: '+esc(alerts.state||"Bilinmiyor")+'. Geçmiş toparlama fişleri bu veri kaynağında tutulmuyor.</div>')+'</section></div>'+ 
+  '<div class="notice">Bu ekran otomatik onarım politikasını ve açık uyarıları gösterir; politika uygulanmış bir müdahale kanıtı değildir. Wi‑Fi değişikliği, force-stop, zorla ARM veya reboot yapılmaz. Son düzelmeler yukarıdaki olay kayıtlarında gösterilir; yeni öneriler gözlem modundadır.</div>'
+}
+function systemPage(){
+ var s=state.system||{},b=state.backup||{},net=state.network_readiness||{};
+ return header("G62 Sistem Sağlığı","Hafif yerel ölçümler; SMART sürekli taranmaz.")+
+ '<div class="grid">'+metric("CPU",s.cpu_percent==null?"Ölçüm bekleniyor":s.cpu_percent+"%","Kısa örneklem")+metric("RAM kullanılabilir",s.ram_available_mib==null?"Bilinmiyor":fmt(s.ram_available_mib)+" MiB","toplam "+fmt(s.ram_total_mib)+" MiB")+metric("CPU sıcaklığı",s.cpu_temp_c==null?"Sensör yok":s.cpu_temp_c+" °C","Güvenilir CPU sensörü varsa")+metric("Uptime",duration(s.uptime_seconds),"")+metric("Kök disk boş",s.root_free_gib==null?"Bilinmiyor":s.root_free_gib+" GiB","/")+metric("HDD boş",s.hdd_free_gib==null?"Bilinmiyor":Number(s.hdd_free_gib).toFixed(1)+" GiB",s.hdd_mount?"Bağlı":"Bağlı değil")+metric("SQLite",s.sqlite_state||"Bilinmiyor",fmt(s.sqlite_jobs)+" iş · "+fmt(s.sqlite_segments)+" segment")+metric("Son yedek",b.name||"Bilinmiyor",b.age_hours==null?"":Number(b.age_hours).toFixed(1)+" saat önce")+'</div>'+
+ '<div class="stack grid two"><section class="card"><h3>Veri diski</h3>'+kv([["UUID",s.hdd_uuid||"Bilinmiyor"],["Beklenen UUID eşleşmesi",s.hdd_uuid_expected?"Evet":"Hayır/bilinmiyor"],["SMART canlı ölçüm",s.smart_live_check],["Önceki reallocated kayıt",fmt(s.known_reallocated_sectors)+" sektör; risksiz değil"],["SQLite quick_check",s.sqlite_state]])+'</section><section class="card"><h3>Ağ ve erişim</h3>'+kv([["Tailscale/ağ hazır",net.state||"Bilinmiyor"],["Sebep",net.reason||"Bilinmiyor"],["Yerel URL","http://127.0.0.1:8765"],["Windows erişimi","SSH tüneli"]])+'</section></div>'+
+ '<div class="notice bad">Önceki kanonik kayıtta 446 yeniden eşlenmiş HDD sektörü vardı. Bu sayfa canlı SMART sorgusu yapmaz.</div>'
+}
+function calendar(){
+ var a=state.timers||[];
+ function timerLabel(t){
+  if(t.timer_state==="POLICY_DISABLED")return ["Politika gereği kapalı","warn"];
+  if(t.timer_state==="RUNNING")return ["Çalışıyor","good"];
+  if(t.timer_state==="RUNNING_SCHEDULED")return ["Çalışıyor · sonraki planlı","good"];
+  if(t.timer_state==="SCHEDULED")return ["Planlı","good"];
+  if(t.timer_state==="ACTIVE_NO_NEXT")return ["Etkin · sonraki zaman yok","warn"];
+  if(t.timer_state==="DISABLED")return ["Kapalı","warn"];
+  return ["Etkin değil","warn"];
+ }
+ return header("Otomasyon Takvimi","systemd’den okunan gerçek MeteorMesh zamanlayıcı ve servis durumları.")+
+ '<div class="card scroll"><table class="table"><thead><tr><th>Zamanlayıcı</th><th>İş</th><th>Son çalışma (TRT)</th><th>Sonraki (TRT)</th><th>Durum</th></tr></thead><tbody>'+
+ (a.map(function(t){var v=timerLabel(t);return '<tr><td>'+esc(t.unit)+'</td><td>'+esc(t.activates)+'</td><td>'+esc(date(t.last_local))+'</td><td>'+esc(date(t.next_local))+'</td><td>'+chip(v[0],v[1])+'</td></tr>'}).join("")||'<tr><td colspan="5">Timer verisi okunamadı</td></tr>')+
+ '</tbody></table></div><div class="notice">05:30 predawn sync analiz döngüsünü başlatır; 15 dakikalık turlar eyleme uygun kuyruk kapanana kadar devam eder. 09:00 timer isteğe bağlıdır ve kapalı tutulur.</div>'
+}
+function reports(){
+ var r=state.reports||{};
+ return header("Günlük Raporlar","Mevcut morning-reports dosyalarından son rapor örnekleri.")+
+ '<div class="grid">'+metric("Okunan rapor örneği",fmt(r.samples),"En fazla 30")+metric("Örnek içindeki gece sayısı · 7g",fmt(r.nights_7d),"Tam 7 gece ölçümü değildir")+metric("Örnek içindeki gece sayısı · 30g",fmt(r.nights_30d),"Daha fazla doğal veri gerekir")+metric("Aktif NightScope",(state.night||{}).night_id||"Bilinmiyor","")+'</div>'+
+ '<div class="card stack scroll"><table class="table"><thead><tr><th>Rapor dosyası</th><th>NightScope</th><th>Faz</th><th>Sonuç</th><th>Sync</th><th>İş</th><th>Zaman</th></tr></thead><tbody>'+
+ (r.items||[]).map(function(x){return '<tr><td class="mono">'+esc(x.name)+'</td><td>'+esc(x.night_id)+'</td><td>'+esc(x.phase)+'</td><td>'+esc(x.outcome)+'</td><td>'+esc(x.sync_good)+'</td><td>'+esc(x.jobs_enqueued)+'</td><td>'+esc(date(x.finished_local))+'</td></tr>'}).join("")+ 
+ '</tbody></table></div><div class="notice">7/30 gecelik başarı yüzdesi, tutarlı kapanış raporları oluşana kadar hesaplanmaz.</div>'
+}
+function progress(){
+ var all=state.acceptance||[];
+ function group(name){return all.filter(function(x){return x.area===name})}
+ function score(a){if(!a.length)return 0;return Math.round(a.reduce(function(s,x){return s+(x.status==="PASS"?1:x.status==="PARTIAL"?0.5:0)},0)*100/a.length)}
+ function rows(a){return '<div class="scroll"><table class="table"><thead><tr><th>Kabul kapısı</th><th>Durum</th><th>Kanıt / eksik</th></tr></thead><tbody>'+a.map(function(x){return '<tr><td>'+esc(x.name)+'</td><td>'+chip(x.status,statusKind(x.status))+'</td><td>'+esc(x.evidence)+'</td></tr>'}).join("")+'</tbody></table></div>'}
+ var sw=group("software"),op=group("operations"),gates=((state.automation_runs||{}).natural_timer_gates||{}),pg=gates.predawn||{},ag=gates.analysis_drain||{};
+ return header("Final İlerleme","Bu puan kabul kanıtlarını özetler; kalan kod miktarı veya güvenilirlik yüzdesi değildir. SMART ve cihaz kabulü de bu puana dahildir.")+ 
+ '<div class="grid two"><section class="card"><h3>Yazılım kanıt puanı · '+score(sw)+'%</h3><div class="progress"><i style="width:'+score(sw)+'%"></i></div><p class="muted">Formül: PASS=1, PARTIAL=0,5, BLOCKED/FAIL=0; yazılım kapısı sayısına bölünür.</p>'+rows(sw)+'</section><section class="card"><h3>Operasyon kanıt puanı · '+score(op)+'%</h3><div class="progress"><i style="width:'+score(op)+'%"></i></div><p class="muted">Aynı formül. En az bir doğal tam gece ve tercihen 7 gece gözlemi ayrıca gerekir.</p>'+rows(op)+'</section></div>'+ 
+ '<div class="notice bad"><b>FINAL DEĞİL.</b> 05:30 başlangıç: '+esc(pg.status||"VERİ YOK")+' · Analiz kuyruğu: '+esc(ag.status||"VERİ YOK")+'. HDD temizliğinde güvenlik doğrulaması ve güncel politika durumunu kontrol et.</div>'
+}
+function drawNav(){ $("nav").innerHTML=pages.map(function(p){return '<button class="navbtn '+(p[0]===current?"active":"")+'" data-page="'+esc(p[0])+'">'+esc(p[1])+'</button>'}).join("");document.querySelectorAll(".navbtn").forEach(function(b){b.onclick=function(){current=b.dataset.page;drawNav();draw()}})}
+function draw(){if(!state)return;var fn=({overview:overview,phones:phones,night:night,analysis:analysis,candidates:candidates,transfer:transfer,cleanup:cleanup,autopilot:autopilot,system:systemPage,calendar:calendar,reports:reports,progress:progress})[current]||overview;$("main").innerHTML=fn()}
+var loadPending=false, loadController=null, refreshTimer=null, connectionLost=false;
+var renderData=draw;
+draw=function(){renderData();if(connectionLost && state) $("main").insertAdjacentHTML("afterbegin",'<div class="notice bad">Bağlantı yok · Son bilinen veriler gösteriliyor. Son başarılı veri: '+esc(date(state.generated_local))+'</div>')};
+async function load(){
+ if(loadPending || document.hidden)return;
+ loadPending=true;loadController=new AbortController();
+ var timeout=setTimeout(function(){loadController.abort()},20000);
+ try{
+  var r=await fetch("/api/state",{cache:"no-store",signal:loadController.signal});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  var next=await r.json();
+  if(!next || next.schema!=="meteormesh.monitor.v1" || !next.freshness || !next.overall || !Array.isArray(next.phones) || !Number.isFinite(Date.parse(next.generated_utc)))throw new Error("STATE_INVALID");
+  state=next;connectionLost=false;$("updated").textContent=date(state.generated_local);drawNav();draw();
+ }catch(e){
+  connectionLost=true;$("updated").textContent="Bağlantı yok";
+  if(state)draw();else $("main").innerHTML='<div class="notice bad">G62 veri API erişilemiyor. Tailscale bağlantısını ve monitör servisini kontrol edin.</div>';
+ }finally{clearTimeout(timeout);loadPending=false;loadController=null;}
+}
+function scheduleRefresh(){clearInterval(refreshTimer);refreshTimer=null;if(!document.hidden){load();refreshTimer=setInterval(load,30000)}}
+document.addEventListener("visibilitychange",function(){if(document.hidden && loadController)loadController.abort();scheduleRefresh()});
+$("refresh").onclick=load;
+$("theme").onclick=function(){var t=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=t;try{localStorage.setItem("mm-theme",t)}catch(e){}};
+try{document.documentElement.dataset.theme=localStorage.getItem("mm-theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}
+drawNav();scheduleRefresh();
+</script>
+</body></html>

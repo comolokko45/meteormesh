@@ -1,0 +1,5 @@
+RC172: fail-closed capture progress evidence; no APK, timer, DB, or phone operation changed
+PREVIOUS 67b97c7c564dd236b51b86143bd841b43a0ed2cf4124b7a54b4fbf1ffa9c0471  meteor-ops-summary.py
+DEPLOYED 3fef219d952376f9c967fcd7280b16368883ddc5c309161f2b40e81aa47006e9  meteor-ops-summary.py
+PREVIOUS 95f6e1c350db3904d4a454e5b36fa09e2e4486071d6a7c80b220c4d573f49f5c  meteor-ops-local-alerts.py
+DEPLOYED e846aaa13716068d282f26e3c3d42c568a73fbea8cdc9e752fddf90872336d7c  meteor-ops-local-alerts.py

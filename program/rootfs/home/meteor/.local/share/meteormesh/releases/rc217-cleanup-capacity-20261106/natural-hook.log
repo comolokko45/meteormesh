@@ -1,0 +1,212 @@
+{
+  "schema": "meteormesh.morning.v0.7",
+  "run_id": "20261106T111024658171Z_a1b3c50e",
+  "started_utc": "2026-11-06T11:10:24.658147+00:00",
+  "devices": [],
+  "sync_good": 0,
+  "sync_pending_or_failed": 0,
+  "jobs_enqueued": 0,
+  "jobs_completed_this_run": 9,
+  "carryover_jobs_completed_this_run": 0,
+  "jobs_failed_this_run": 0,
+  "analysis_batch_yielded": true,
+  "errors": [],
+  "notices": [],
+  "scientific_event_status": "PROVISIONAL_ONLY",
+  "analysis_scope": "night_window",
+  "night_id": "20261105-night",
+  "new_night_completeness_proven": false,
+  "retention_enabled": false,
+  "phone_delete_enabled": false,
+  "hub_delete_enabled": false,
+  "archive_verified": false,
+  "session_analysis_closed": false,
+  "llm_required": false,
+  "max_segments_per_device": null,
+  "phase": "analyze",
+  "configured_device_ids": [
+    "cam-ruby",
+    "cam-surya",
+    "cam-viva"
+  ],
+  "required_scope_device_ids": [
+    "cam-ruby",
+    "cam-surya",
+    "cam-viva"
+  ],
+  "night_scope_device_config_match": true,
+  "night_scope_device_coverage": {
+    "cam-ruby": 120,
+    "cam-surya": 120,
+    "cam-viva": 120
+  },
+  "night_scope_missing_devices": [],
+  "carryover_review_required": true,
+  "stale_jobs_reclaimed": 0,
+  "waiting_missing_source": {
+    "by_scope_and_device": {
+      "carryover": {
+        "cam-ruby": 48,
+        "cam-surya": 48,
+        "cam-viva": 3
+      }
+    },
+    "total": 99
+  },
+  "queue": {
+    "ingest_states": {
+      "INGEST_VERIFIED": 1633
+    },
+    "jobs": {
+      "FAILED": 119,
+      "SUCCEEDED": 1337,
+      "WAITING": 177
+    },
+    "completed_detector_runs": 1337,
+    "retention_auto_delete": true
+  },
+  "briefing": {
+    "dil": "tr",
+    "kaynak": "yerel_sqlite_salt_okunur",
+    "dogrulanmis_video_sayisi": 1633,
+    "dogrulanmis_video_bayti": 368185224877,
+    "bekleyen_analiz": 177,
+    "calisan_analiz": 0,
+    "tamamlanan_analiz": 1337,
+    "basarisiz_analiz": 119,
+    "uyari": "Başarısız analiz işleri kontrol edilmeli.",
+    "gercek_meteor_sayisi": "BILINMIYOR_INCELEME_GEREKLI",
+    "otomatik_silme": false,
+    "yapay_zeka_modeli_aktif": false
+  },
+  "health_inventory": {
+    "schema": "meteormesh.health.v0.7",
+    "scope": "ALL_SESSIONS_IN_LOCAL_DATABASE_NOT_A_CLOSED_NIGHT",
+    "capture_session_complete": false,
+    "metadata_gap_test_complete": false,
+    "science_time_synchronized": false,
+    "retention_permission": false,
+    "device_health": {
+      "cam-viva": {
+        "segments_in_inventory": 266,
+        "segments_ingest_verified": 266,
+        "total_verified_bytes": 30428905650,
+        "verified_video_duration_seconds": 80104.926,
+        "verified_segments_missing_duration": 0,
+        "nonverified_segments": 0,
+        "detector_latest_run_count": 237,
+        "detector_processing_ratio_R": 0.249,
+        "frame_pts_gap_count": "UNVERIFIED",
+        "sensor_to_utc_uncertainty_ms": "UNVERIFIED"
+      },
+      "cam-ruby": {
+        "segments_in_inventory": 805,
+        "segments_ingest_verified": 805,
+        "total_verified_bytes": 200075576361,
+        "verified_video_duration_seconds": 232806.01,
+        "verified_segments_missing_duration": 0,
+        "nonverified_segments": 0,
+        "detector_latest_run_count": 612,
+        "detector_processing_ratio_R": 0.274,
+        "frame_pts_gap_count": "UNVERIFIED",
+        "sensor_to_utc_uncertainty_ms": "UNVERIFIED"
+      },
+      "cam-surya": {
+        "segments_in_inventory": 562,
+        "segments_ingest_verified": 562,
+        "total_verified_bytes": 137680742866,
+        "verified_video_duration_seconds": 159669.904,
+        "verified_segments_missing_duration": 0,
+        "nonverified_segments": 0,
+        "detector_latest_run_count": 488,
+        "detector_processing_ratio_R": 0.426,
+        "frame_pts_gap_count": "UNVERIFIED",
+        "sensor_to_utc_uncertainty_ms": "UNVERIFIED"
+      }
+    }
+  },
+  "night_queue": {
+    "WAITING": 78,
+    "RUNNING": 0,
+    "SUCCEEDED": 282,
+    "FAILED": 0
+  },
+  "carryover_queue": {
+    "WAITING": 99,
+    "RUNNING": 0,
+    "SUCCEEDED": 1052,
+    "FAILED": 119
+  },
+  "historical_queue_excluded_from_night_status": true,
+  "verified_segments_in_db": 360,
+  "historical_warnings": [
+    "Allowed carryover jobs require separate review"
+  ],
+  "provisional_events_skipped": "INGEST_OR_ANALYSIS_INCOMPLETE",
+  "finished_utc": "2026-11-06T11:22:27.426868+00:00",
+  "elapsed_seconds": 722.77,
+  "analysis_pending_classification": {
+    "waiting_total": 78,
+    "waiting_source_missing": 0,
+    "waiting_actionable": 78,
+    "running": 0,
+    "actionable_pending": true,
+    "source_missing_only": false
+  },
+  "outcome": "ANALYSIS_BATCH_PENDING",
+  "run_report": "/srv/meteor-data/morning-reports/morning_20261106T111024658171Z_a1b3c50e.json"
+}
+MM153_DB_BACKUP: PASS
+BACKUP_PATH: /home/meteor/.local/share/meteormesh/db-backups/meteorhub-20261106T112227Z-052a69e1.sqlite3
+SHA256: 3a19fa680f909deb7dcc9c5f4dc7e9c4c35cf53ad364cc313ff3832f51fb77f6
+JOB_ROWS: 1633; QUICK_CHECK: ok; SOURCE_UNMODIFIED
+RC191_CHAIN: DB_BACKUP_PRE_RETENTION=OK
+RETENTION_SKIP cam-ruby/ruby_20261104T163526Z_7302145334aa: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T163524Z_895303d41922: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-ruby/ruby_20261104T164026Z_7492b6507fee: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T164024Z_469fd0d9c847: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-ruby/ruby_20261104T164526Z_7276a12e4a32: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T164524Z_d05937f45ac5: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T165024Z_8e766cadf2b8: nearby successful analysis missing for cam-surya:previous,cam-surya:current
+RETENTION_SKIP cam-ruby/ruby_20261104T165526Z_fb30f113bd59: nearby successful analysis missing for cam-surya:previous
+RETENTION_SKIP cam-surya/surya_20261104T165524Z_0f427d3925f5: nearby successful analysis missing for cam-surya:previous
+RETENTION_SKIP cam-viva/viva_20261104T165524Z_25a5a525623a: nearby successful analysis missing for cam-surya:previous
+RETENTION_DELETED cam-surya/surya_20261104T192027Z_29948357d437 bytes=258620002
+RETENTION_DELETED cam-viva/viva_20261104T192027Z_229e522b46f9 bytes=102617968
+RETENTION_DELETED cam-ruby/ruby_20261104T192529Z_5a7d02c1eb2b bytes=257892037
+RETENTION_DELETED cam-surya/surya_20261104T192527Z_d3c617f4ae94 bytes=258619962
+RETENTION_DELETED cam-viva/viva_20261104T192527Z_556e143247b5 bytes=102709142
+NEGATIVE_RETENTION: {"adjacent_preserved": 0, "analysis_pending": 0, "camera_coverage_incomplete": 10, "candidate_guard_intervals": 417, "candidate_preserved": 0, "deleted": 5, "eligible": 5, "mode": "APPLY", "skipped": 0, "stopped_at_limit": true, "target": null, "unreadable_successful_results_protected": 0}
+RC191_CHAIN: NEGATIVE_RETENTION=OK
+RC217: batch=1 status=OK
+MM153_DB_BACKUP: PASS
+BACKUP_PATH: /home/meteor/.local/share/meteormesh/db-backups/meteorhub-20261106T112249Z-450f92f9.sqlite3
+SHA256: 3685612b9905fcd609c37f5dd2667e25905e6fc14be4bc828e7bba339b4f2ca1
+JOB_ROWS: 1633; QUICK_CHECK: ok; SOURCE_UNMODIFIED
+RC191_CHAIN: DB_BACKUP_PRE_RETENTION=OK
+RETENTION_SKIP cam-ruby/ruby_20261104T163526Z_7302145334aa: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T163524Z_895303d41922: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-ruby/ruby_20261104T164026Z_7492b6507fee: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T164024Z_469fd0d9c847: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-ruby/ruby_20261104T164526Z_7276a12e4a32: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T164524Z_d05937f45ac5: nearby successful analysis missing for cam-surya:previous,cam-surya:current,cam-surya:next
+RETENTION_SKIP cam-viva/viva_20261104T165024Z_8e766cadf2b8: nearby successful analysis missing for cam-surya:previous,cam-surya:current
+RETENTION_SKIP cam-ruby/ruby_20261104T165526Z_fb30f113bd59: nearby successful analysis missing for cam-surya:previous
+RETENTION_SKIP cam-surya/surya_20261104T165524Z_0f427d3925f5: nearby successful analysis missing for cam-surya:previous
+RETENTION_SKIP cam-viva/viva_20261104T165524Z_25a5a525623a: nearby successful analysis missing for cam-surya:previous
+RETENTION_DELETED cam-ruby/ruby_20261104T193029Z_636e1070d615 bytes=257865948
+RETENTION_DELETED cam-surya/surya_20261104T193027Z_fb7fc25f684c bytes=258685002
+RETENTION_DELETED cam-viva/viva_20261104T193027Z_dc98403b6552 bytes=102790183
+RETENTION_DELETED cam-ruby/ruby_20261104T193529Z_787321a8c32d bytes=257886906
+RETENTION_DELETED cam-surya/surya_20261104T193527Z_9a830a88cabd bytes=258685350
+NEGATIVE_RETENTION: {"adjacent_preserved": 0, "analysis_pending": 0, "camera_coverage_incomplete": 10, "candidate_guard_intervals": 417, "candidate_preserved": 0, "deleted": 5, "eligible": 5, "mode": "APPLY", "skipped": 0, "stopped_at_limit": true, "target": null, "unreadable_successful_results_protected": 0}
+RC191_CHAIN: NEGATIVE_RETENTION=OK
+RC217: batch=2 status=OK
+NIGHT_ANALYSIS_SNAPSHOT: {"claims": {"all_camera_coverage_proven": false, "archive_verified": false, "auto_delete": false, "confirmed_meteors": false, "original_video_rehashed": false}, "detector_candidates_unreviewed": 0, "devices": {"cam-ruby": {"detector_candidates_unreviewed": 0, "jobs": {"FAILED": 0, "RUNNING": 0, "SUCCEEDED": 94, "WAITING": 26}, "result_integrity_errors": 0, "verified_segments": 120}, "cam-surya": {"detector_candidates_unreviewed": 0, "jobs": {"FAILED": 0, "RUNNING": 0, "SUCCEEDED": 94, "WAITING": 26}, "result_integrity_errors": 0, "verified_segments": 120}, "cam-viva": {"detector_candidates_unreviewed": 0, "jobs": {"FAILED": 0, "RUNNING": 0, "SUCCEEDED": 94, "WAITING": 26}, "result_integrity_errors": 0, "verified_segments": 120}}, "errors": [], "jobs_not_successful": 78, "missing_verified_devices": [], "night_id": "20261105-night", "schema": "meteormesh.night-analysis-snapshot.v1", "status": "PARTIAL"}
+EVENT_REVIEW_INDEX: {"archives_uploaded": false, "clip_generated": false, "created": 0, "errors": [], "existing": 0, "failed_sources": 0, "missing_source_by_camera": {"cam-ruby": 340, "cam-surya": 218, "cam-viva": 60}, "missing_source_by_night": {"20261030": 123, "20261101": 252, "20261102": 127, "20261104": 116}, "missing_source_count": 618, "originals_deleted": false, "per_camera": {"cam-ruby": 0, "cam-surya": 0, "cam-viva": 0}}
+EVENT_AUTO_PACKAGE: {"clips_generated": 0, "created": 0, "eligible_receipts": 1, "errors": [], "existing": 1, "invalid": 0, "limit": 10, "originals_deleted": false, "test_only": true, "upload": false}
+RC151_AFTER_ANALYSIS: NIGHT_SNAPSHOT=WARNING_PARTIAL,EVENT_REVIEW=WARNING_SOURCE_MISSING,AUTO_PACKAGE=OK
+RC191_CHAIN: REPORT=OK
+RC191_POST_ANALYSIS: DELEGATED exit=0
+Finished meteormesh-analyze.service - MeteorMesh RC1.4 analysis queue after morning sync.
+meteormesh-analyze.service: Consumed 44min 8.756s CPU time, 1.9G memory peak, 0B memory swap peak.

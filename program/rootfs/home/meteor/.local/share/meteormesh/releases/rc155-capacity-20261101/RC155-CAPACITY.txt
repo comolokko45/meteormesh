@@ -1,0 +1,5 @@
+MeteorMesh RC1.5.5 bounded analysis capacity
+Analysis: 16h max-runtime, 18h systemd start timeout, 500 jobs
+Morning ingest/sync remains 12h, no camera/timer modifications.
+Rollback: remove zzzzz-rc155-capacity.conf then daemon-reload.
+No automatic deletion or cloud actions.

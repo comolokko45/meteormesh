@@ -1,0 +1,17 @@
+[Unit]
+Description=MeteorMesh morning verified transfer and meteor analysis
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=REPLACE_WITH_ABSOLUTE_METEORHUB_DIRECTORY
+EnvironmentFile=%h/.config/meteormesh/tokens.env
+ExecStart=/usr/bin/python3 REPLACE_WITH_ABSOLUTE_METEORHUB_DIRECTORY/meteor_morning.py run --config REPLACE_WITH_ABSOLUTE_DEVICES_JSON --data-dir REPLACE_WITH_ABSOLUTE_DATA_DIRECTORY --metdet-repo REPLACE_WITH_ABSOLUTE_METDETPY_DIRECTORY --metdet-config REPLACE_WITH_ABSOLUTE_METDETPY_CONFIG --max-runtime-hours 12 --max-jobs 288 --min-free-gb 2
+TimeoutStartSec=13h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+# No ExecStartPre/ExecStartPost shell commands, remote delete or Drive upload.
+# Do not enable before real phone, ffprobe and MetDetPy validation.

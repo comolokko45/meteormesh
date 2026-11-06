@@ -1,0 +1,18 @@
+{
+  "previous_monitor": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc217-cleanup-capacity-20261106/monitor/meteor-monitor-server.py ; ignore_errors=no ; start_time=[Fri 2026-11-06 11:21:53 UTC] ; stop_time=[n/a] ; pid=264386 ; code=(null) ; status=0/0 }",
+  "capture_base_sha256": "2b4c5e6071aa9d9814435838f7568632c3fcce0e6f38ac00c836096d15842693",
+  "files": {
+    "monitor_base.py": "1295a1c37c60247f67739305e16d389dd7373826b43e3c823a0bf21faa444443",
+    "index.html": "66ac7ea50022245dd6168f785bab91f337e29e0acadc25dc64ea06148a7e4d01",
+    "capture_base.py": "2b4c5e6071aa9d9814435838f7568632c3fcce0e6f38ac00c836096d15842693",
+    "manage_server.py": "dc9df7e3819e5eeb63f01013d035927fa86b88c13311b930d1635420a8ea5176",
+    "deploy.py": "3696aa3f6f446680ac588f01846c53e8df8d548baebbe0964e6fb7d0834c13d1",
+    "test_management.py": "fff520cfcd669bda2bca6de226e7dbb5a834d3dc800fc6238671525da6a181bc",
+    "capture_control.py": "7e99cccf79ea7fa55224a593a7af05db5395f3b96323e7cb460ae2b61fbb0302",
+    "manage.html": "1bedbd0d79503a7d4821f4cb3adb4490701875996037e87980f2955b2dcdc4c0"
+  },
+  "dropins": [
+    "/home/meteor/.config/systemd/user/meteormesh-monitor.service.d/95-rc218-management.conf",
+    "/home/meteor/.config/systemd/user/meteormesh-capture.service.d/~rc218-manual-intent.conf"
+  ]
+}

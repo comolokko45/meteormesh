@@ -1,0 +1,23 @@
+{
+  "https": "TLS_VERIFIED",
+  "unauthenticated": "DENIED",
+  "login": "PASS",
+  "idempotent_request": "b259dbb9-9a41-4f04-bc1a-5e9602ade137",
+  "status_refresh_result": {
+    "id": "b259dbb9-9a41-4f04-bc1a-5e9602ade137",
+    "action": "status",
+    "device": "",
+    "at": 1793965006.3765028,
+    "monotonic": 195509.31671606,
+    "status": "SERVICE_COMPLETED",
+    "service": {
+      "Result": "success",
+      "ExecMainStartTimestampMonotonic": "195509356308",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "InvocationID": "36d0726b690741f68d01fb5f5c911cb7"
+    }
+  },
+  "camera_commands_executed": false,
+  "reboot_or_delete_executed": false
+}

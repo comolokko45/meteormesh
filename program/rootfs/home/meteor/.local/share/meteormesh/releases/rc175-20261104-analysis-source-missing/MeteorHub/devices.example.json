@@ -1,0 +1,25 @@
+{
+  "devices": [
+    {
+      "id": "cam-ruby",
+      "host": "192.168.1.51",
+      "port": 8443,
+      "fingerprint": "REPLACE_WITH_RUBY_CERT_SHA256",
+      "token_env": "METEORNODE_TOKEN_RUBY"
+    },
+    {
+      "id": "cam-viva",
+      "host": "192.168.1.52",
+      "port": 8443,
+      "fingerprint": "REPLACE_WITH_VIVA_CERT_SHA256",
+      "token_env": "METEORNODE_TOKEN_VIVA"
+    },
+    {
+      "id": "cam-surya",
+      "host": "192.168.1.53",
+      "port": 8443,
+      "fingerprint": "REPLACE_WITH_SURYA_CERT_SHA256",
+      "token_env": "METEORNODE_TOKEN_SURYA"
+    }
+  ]
+}

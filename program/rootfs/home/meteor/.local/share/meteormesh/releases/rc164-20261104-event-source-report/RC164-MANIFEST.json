@@ -1,0 +1,24 @@
+{
+  "release": "RC164-source-missing-events",
+  "deployed_utc": "2026-11-03T23:34:20.863700+00:00",
+  "active_scope": "meteormesh-analyze.service ExecStopPost only",
+  "changes": [
+    "Missing MP4 FileNotFoundError is reported separately by camera and night, not as failed_sources.",
+    "Wrong-size, unsafe-path, and other source errors remain failed_sources.",
+    "RC151 observer distinguishes WARNING_SOURCE_MISSING from WARNING_SOURCE_ERRORS."
+  ],
+  "targeted_tests": "RC164_TARGETED_TESTS_PASS: missing-source and wrong-size cases",
+  "previous_dropin_sha256": "7377cabb360a0d616d664c97a560166d0e537131c3ab97761c42adb6acb16c99",
+  "previous_dropin_copy": "/home/meteor/.local/share/meteormesh/releases/rc164-20261104-event-source-report/rollback/zzzz-rc153-backup.conf.pre-rc164",
+  "dropin": "/home/meteor/.config/systemd/user/meteormesh-analyze.service.d/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rc164-source-missing-events.conf",
+  "dropin_sha256": "4cd60b1676380ac6a46c88782f0c971a8b68ea86bae77b5f8411559ce32f3105",
+  "files": {
+    "meteor-event-review.py": "b9cfe0207eeecc181cba6b86db7f0a2abbddeac628e1f7ccb9767cf7983ff238",
+    "after_analysis_rc151.py": "732f117c93c0ceb42ed25c23ec649581d1279084956d5673a9ab74b57ba394bf",
+    "meteor-night-snapshot.py": "1652e9e16af1c5a0fbc5197e53affea7127a2feb4532ed1bc408f0e5297e052d",
+    "meteor-auto-package.py": "3dfaa3cc24ad485304f98d8a34009ed602dfc8a1746358cbfb0f68d06ed9042a",
+    "after_analysis_with_backup.py": "9546de9f40e0e89b5d09368cb2b5b199b089de2c68b9c103ea0a82dd2075c04e",
+    "meteor_db_backup.py": "e8234bff49721e065a7f6050c419e3c65e29c842085ff139f391a6fc3a4dbdf3"
+  },
+  "rollback": "Remove RC164 drop-in and run systemctl --user daemon-reload; old RC153 drop-in remains unchanged."
+}

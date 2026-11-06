@@ -1,0 +1,25 @@
+{
+  "operation": "meteor_morning.plan",
+  "runs_now": false,
+  "data_root": "/srv/meteor-data",
+  "device_ids": [
+    "cam-viva"
+  ],
+  "device_count": 1,
+  "config_ready_for_live_run": true,
+  "config_validation_error": null,
+  "ffprobe_found": true,
+  "detector_repo_present": true,
+  "detector_config_present": true,
+  "phases": [
+    "sequential_pinned_tls_sync",
+    "sha256_and_ffprobe",
+    "sqlite_enqueue",
+    "single_worker_metdetpy",
+    "provisional_report_if_complete"
+  ],
+  "model_required": false,
+  "auto_purge": false,
+  "remote_upload": false,
+  "warning": "Real phone/Linux end-to-end acceptance is still required"
+}

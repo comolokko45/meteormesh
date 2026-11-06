@@ -1,0 +1,28 @@
+{
+  "release": "rc159-20261103-reboot-resume",
+  "derived_from": "rc158-20261103-analysis-rounds",
+  "created_utc": "2026-11-03T18:09:25.756280+00:00",
+  "changes": [
+    "60-second scoped reclaim of interrupted RUNNING jobs under exclusive lock",
+    "durable detector result recovery receipt before final file publish",
+    "bounded boot network and Tailscale readiness is installed as user service preflight",
+    "00:30 timer Persistent=true and daily services retry boundedly on failure"
+  ],
+  "files": [
+    {
+      "path": "MeteorHub/meteor_morning.py",
+      "bytes": 29707,
+      "sha256": "6efb3a72482b1f968118b7923319d24adf5ac69816c8139ca5b6791ff10c5ff2"
+    },
+    {
+      "path": "MeteorHub/hub_workflow.py",
+      "bytes": 19177,
+      "sha256": "93af2b8e1152e7a1d8da96c86b2582732d979d5a903a780e1bc06b036063ead7"
+    },
+    {
+      "path": "README-REBOOT-RESUME.md",
+      "bytes": 1261,
+      "sha256": "c1aad445361fd228c7ca18943f7606d425ea92bfc5a3b6c245da389b686c7140"
+    }
+  ]
+}

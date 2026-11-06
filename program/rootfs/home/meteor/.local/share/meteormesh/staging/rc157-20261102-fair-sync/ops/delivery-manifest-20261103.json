@@ -1,0 +1,63 @@
+{
+  "schema": "meteormesh.delivery_manifest.v1",
+  "created_utc": "2026-11-02T22:26:50+00:00",
+  "candidate": "RC157",
+  "base_release": "rc156-20261101-night-status",
+  "production_deployed": false,
+  "MetDetPy_base_commit": "4825da00af19d1ba9653fcd07b1965c860cf3533",
+  "files": [
+    {
+      "path": "/home/meteor/.local/share/meteormesh/staging/rc157-20261102-fair-sync/ops/RC157_MeteorHub_delta.patch",
+      "sha256": "0eab00afdf35d809e61f5d6abe025179fb896de9cd8aa04833a6bd3ec30a5a29",
+      "bytes": 23814
+    },
+    {
+      "path": "/home/meteor/.local/share/meteormesh/staging/rc157-20261102-fair-sync/ops/MetDetPy_headless_compat.patch",
+      "sha256": "b17d0088ae35f0de2c1a8a68c378f613a2b9dab4b7a65995f0e2f6a5f6993de0",
+      "bytes": 299
+    },
+    {
+      "path": "/home/meteor/.local/share/meteormesh/staging/rc157-20261102-fair-sync/MeteorHub/meteor_morning.py",
+      "sha256": "c575ba072010cd6434fdf66765cc51ef7d0f1949009351050972d06105ca68c5",
+      "bytes": 28561
+    },
+    {
+      "path": "/home/meteor/.local/share/meteormesh/staging/rc157-20261102-fair-sync/MeteorHub/hub_workflow.py",
+      "sha256": "6aa487cba006f4b8eede58568a22788589bea4b194835988089d466eb1c34c08",
+      "bytes": 13240
+    },
+    {
+      "path": "/home/meteor/.local/share/meteormesh/staging/rc157-20261102-fair-sync/MeteorHub/MERGE-RELEASE-NOTES.md",
+      "sha256": "397c9e0c1674fd62885de150933cd6874a32172c56fc601b192578e07f9b7b8a",
+      "bytes": 3125
+    },
+    {
+      "path": "/opt/meteormesh/MetDetPy/MetLib/metvisu.py",
+      "sha256": "d8a904512189778c712ade00d8e083a2f16c7bf4dcfe8d43822d227fea4e3963",
+      "bytes": 23724
+    }
+  ],
+  "evidence_reports": [
+    {
+      "path": "/srv/meteor-data/morning-reports/morning_20261102T211506378960Z_7a35226b.json",
+      "sha256": "06ebdaa6443c107eea645731134c45a2f755ceabbd0dbf566daf1cc174b50918",
+      "bytes": 4384
+    },
+    {
+      "path": "/srv/meteor-data/morning-reports/morning_20261102T213816271197Z_bcaa89fa.json",
+      "sha256": "2cf1a10c389770b06b47ac75d390917d9de4c84faa038c5c489281589e170c34",
+      "bytes": 3363
+    },
+    {
+      "path": "/srv/meteor-data/morning-reports/morning_20261102T214357495377Z_eab19e59.json",
+      "sha256": "dd05cda9cd6dad84e4aedc1d4057f28d0aaff6a980cd4e9fc6e9cdb266bb4edc",
+      "bytes": 3459
+    },
+    {
+      "path": "/srv/meteor-data/morning-reports/morning_20261102T220023287921Z_7dcdc88e.json",
+      "sha256": "9419596cb9103f0d76eb29a4b1ed502cafe3c24a2ebf9ef80997695e8ee7e934",
+      "bytes": 4734
+    }
+  ],
+  "release_status": "LAB_PARTIAL_PENDING_SURYA_ADB_VIVA_CONNECTIVITY_FULL_NIGHT_AND_PURGE_KEYS"
+}

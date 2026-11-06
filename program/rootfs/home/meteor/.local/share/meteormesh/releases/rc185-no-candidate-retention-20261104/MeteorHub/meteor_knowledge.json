@@ -1,0 +1,50 @@
+[
+  {
+    "id": "nasa-meteor-terms",
+    "title": "Meteor, meteoroid, meteorit farkları",
+    "text": "Meteoroid uzayda bulunan küçük gök cismidir. Atmosferde görülen parlak iz meteor olarak adlandırılır. Yere ulaşan parça meteorittir. Kamera görüntüsündeki parlak çizgi tek başına kesin meteor kanıtı değildir.",
+    "tags": ["meteor", "meteoroid", "meteorit", "gok tasi", "atmosfer"],
+    "source_name": "NASA Science",
+    "source_url": "https://science.nasa.gov/solar-system/meteors-meteorites/"
+  },
+  {
+    "id": "gm-not-orbit",
+    "title": "Yakın üç kamera ve meteor yörüngesi",
+    "text": "MeteorMesh'in 25 cm aralıklı üç telefonu görüş alanı ve kamera tepkisi karşılaştırması için yararlıdır, fakat güvenilir atmosferik 3B meteor yörüngesi veya paralaks çözümü sağlamaz. Gerçek yörünge için kilometrelerce ayrık istasyonların ölçümleri ve kalibrasyon gerekir.",
+    "tags": ["triangulasyon", "yorunge", "paralaks", "istasyon", "surya", "ruby", "viva"],
+    "source_name": "Global Meteor Network",
+    "source_url": "https://globalmeteornetwork.org/wiki/"
+  },
+  {
+    "id": "metdetpy-role",
+    "title": "MetDetPy video meteor algılama",
+    "text": "MetDetPy kaydedilmiş meteor videoları için bir aday algılayıcıdır; hareket ve zaman serisi yöntemleri kullanır. Sonuçları kesin bilimsel meteor sınıflandırması değildir. MeteorMesh'te ana dedektör olarak MetDetPy v2.6.1 sabitlenmiştir ve gerçek HP G62 performansı henüz ölçülmemiştir.",
+    "tags": ["metdetpy", "dedektor", "video", "aday", "algilama", "analiz"],
+    "source_name": "MetDetPy resmi dokümantasyon",
+    "source_url": "https://github.com/LilacMeteorObservatory/MetDetPy/blob/main/docs/tool-usage/Detector-usage.md"
+  },
+  {
+    "id": "skyfit-science",
+    "title": "SkyFit2 kalibrasyon",
+    "text": "SkyFit2 seçilen olayların astrometrik ve fotometrik kalibrasyonu için kullanılır. MeteorMesh'in her gece işleyen zorunlu dedektörü değildir. Lens, montaj, odak veya crop değişirse kalibrasyon tekrar değerlendirilmelidir.",
+    "tags": ["skyfit2", "kalibrasyon", "astrometri", "fotometri", "kamera"],
+    "source_name": "Global Meteor Network",
+    "source_url": "https://globalmeteornetwork.org/wiki/"
+  },
+  {
+    "id": "meteormesh-data-integrity",
+    "title": "MeteorMesh veri güvenliği",
+    "text": "Telefonlar gece H.264 MP4 segmentlerini yerel tutar, HP G62 sabah LAN üzerinden indirir. SHA-256 ve ffprobe doğrulaması tamamlanmadan analiz girdisi kabul edilmez. Tek kamera meteor adayı atılmaz. Meteora ait kaynak segmentler korunur. AI hiçbir koşulda video silme makbuzu üretmez veya otomatik purge yönetmez.",
+    "tags": ["meteormesh", "hash", "yedekleme", "silme", "retention", "guvenlik"],
+    "source_name": "MeteorMesh proje kararı v1.5",
+    "source_url": ""
+  },
+  {
+    "id": "time-and-uncertainty",
+    "title": "Kamera zaman damgası ve belirsizlik",
+    "text": "MeteorNode 0.1 videolarının UTC bilgisi şimdilik tahminidir. Üç kamera kaydını aynı olaya eşlemek için gerçek kare PTS, kamera timestamp ve optik flaş testleri gerekir. Şu an ±2 saniye eşleşme yalnız inceleme önerisidir, kesin aynı meteor hükmü değildir.",
+    "tags": ["zaman", "utc", "timestamp", "pts", "esleme", "belirsizlik", "senkron"],
+    "source_name": "MeteorMesh proje kararı v1.5",
+    "source_url": ""
+  }
+]

@@ -1,0 +1,16 @@
+[Unit]
+Description=MeteorMesh 05:30 verified sync then start nightly analysis
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/srv/meteor-data
+ConditionPathIsMountPoint=/srv/meteor-data
+StartLimitIntervalSec=2h
+StartLimitBurst=4
+OnSuccess=meteormesh-analyze.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user start meteormesh-morning.service
+TimeoutStartSec=13h
+Restart=on-failure
+RestartSec=5min

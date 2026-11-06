@@ -1,0 +1,25 @@
+{
+  "release": "RC167-bundler-hook",
+  "deployed_utc": "2026-11-04T00:20:47.628678+00:00",
+  "root_cause": "RC165 auto-package hook expected sibling meteor-bundle-once.py; new release omitted that already approved pinned helper.",
+  "change": "Include the exact helper from RC15 consolidated release. It validates existing test clip/review receipt and writes only a test-only package manifest; no clip generation, cloud upload, scientific confirmation, or deletion.",
+  "active_scope": "meteormesh-analyze.service ExecStopPost only",
+  "dropin": "/home/meteor/.config/systemd/user/meteormesh-analyze.service.d/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rc167-bundler-hook.conf",
+  "dropin_sha256": "e463ae1423b148b151661e305a69f7c4e8e8251a4de45fc18641d1cc24089b17",
+  "pinned_bundler_source": "/home/meteor/.local/share/meteormesh/releases/rc15-20261031-consolidated/hooks/meteor-bundle-once.py",
+  "pinned_bundler_sha256": "12675f5b423838d62a6be8162da23241049a97fcbf5f181a9b38e179bfcb5262",
+  "previous_dropin_sha256": "f00f1cf155126f0986f0e1a41fd17b74f5611af8eba720600d12bffb0516f4b9",
+  "rollback": "Remove RC167 drop-in and daemon-reload; RC165 drop-in remains active.",
+  "files": {
+    "after_analysis_rc151.py": "732f117c93c0ceb42ed25c23ec649581d1279084956d5673a9ab74b57ba394bf",
+    "after_analysis_with_backup.py": "8a56ad7e665b3d459dc88ed76d0b8e466894bc620038dcc2b66358829f121e0b",
+    "meteor-auto-package.py": "3dfaa3cc24ad485304f98d8a34009ed602dfc8a1746358cbfb0f68d06ed9042a",
+    "meteor-bundle-once.py": "12675f5b423838d62a6be8162da23241049a97fcbf5f181a9b38e179bfcb5262",
+    "meteor-event-review.py": "b9cfe0207eeecc181cba6b86db7f0a2abbddeac628e1f7ccb9767cf7983ff238",
+    "meteor-night-snapshot.py": "1652e9e16af1c5a0fbc5197e53affea7127a2feb4532ed1bc408f0e5297e052d",
+    "meteor_db_backup.py": "e8234bff49721e065a7f6050c419e3c65e29c842085ff139f391a6fc3a4dbdf3",
+    "rollback/rc165-dropin.pre-rc167.conf": "f00f1cf155126f0986f0e1a41fd17b74f5611af8eba720600d12bffb0516f4b9",
+    "rc167-bundler-hook.conf": "e463ae1423b148b151661e305a69f7c4e8e8251a4de45fc18641d1cc24089b17",
+    "RC165-MANIFEST.json": "f0399ab39c98123bbe022e500ed4928b907ae7fe4d89010e57d4143fecf20b94"
+  }
+}

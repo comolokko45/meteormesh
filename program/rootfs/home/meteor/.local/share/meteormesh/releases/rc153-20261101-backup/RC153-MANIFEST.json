@@ -1,0 +1,12 @@
+{
+  "after_analysis_existing_report_preserved": true,
+  "automatic_delete": false,
+  "cloud_upload": false,
+  "db_only": true,
+  "schema": "meteormesh.rc153.db-backup.v1",
+  "sha256": {
+    "after_analysis_with_backup.py": "b5bbf72be0f065dbce10b50d5e352117dfc448cffa27029df53d6b81fb18e66b",
+    "meteor_db_backup.py": "e8234bff49721e065a7f6050c419e3c65e29c842085ff139f391a6fc3a4dbdf3"
+  },
+  "ssd_destination": "/home/meteor/.local/share/meteormesh/db-backups"
+}

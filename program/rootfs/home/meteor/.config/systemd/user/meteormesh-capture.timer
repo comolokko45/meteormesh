@@ -1,0 +1,11 @@
+[Unit]
+Description=MeteorMesh night capture every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00 Europe/Istanbul
+AccuracySec=30s
+Persistent=true
+Unit=meteormesh-capture.service
+
+[Install]
+WantedBy=timers.target

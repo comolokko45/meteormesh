@@ -1,0 +1,19 @@
+{
+  "previous_monitor": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc218-mobile-management-20261106/manage_server.py ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+  "overrides": [
+    "/home/meteor/.config/systemd/user/meteormesh-monitor.service.d/96-rc221-invocation-proof.conf",
+    "/home/meteor/.config/systemd/user/meteormesh-capture.service.d/~rc221-storage-priority.conf"
+  ],
+  "sha256": {
+    "monitor_base.py": "1295a1c37c60247f67739305e16d389dd7373826b43e3c823a0bf21faa444443",
+    "index.html": "66ac7ea50022245dd6168f785bab91f337e29e0acadc25dc64ea06148a7e4d01",
+    "capture_base.py": "616391da3554f984e7ace59c846a2bda89a798bd4979c7461e293e99244860e0",
+    "manage_server.py": "4def6304fb4d40ecd8b5cff41400106438acaaa84c300ff70a86aa2ed5ed99f0",
+    "deploy.py": "a1e541b99058f0a444b14d6b9f3743c1ce6f99e599e2cf5ab20cd1fadb4a3996",
+    "check_data.py": "da473072b8398b825d7ffd11f0a7e0dc646ced09358b661067980523518b23df",
+    "test_fixes.py": "1ba192b5a8cf7580fd1bf078ec6a70e8485f2f96b299e42d19419f3dbdae720e",
+    "audit_sources.py": "6291092df838b9ae195742290e5428eed9e3bbca0be4b1408dd650d25388a6c3",
+    "capture_control.py": "3c11ca93030a604714217edd1cdae060ad3feec6c776f188e9a822e870820f7f",
+    "manage.html": "1bedbd0d79503a7d4821f4cb3adb4490701875996037e87980f2955b2dcdc4c0"
+  }
+}

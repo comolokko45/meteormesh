@@ -1,0 +1,18 @@
+[Unit]
+Description=MeteorMesh morning transfer and analysis
+Wants=network-online.target
+After=network-online.target
+ConditionPathIsMountPoint=/srv/meteor-data
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/meteormesh/src/MeteorHub-0.9
+EnvironmentFile=%h/.config/meteormesh/tokens.env
+Environment=OMP_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=2
+ExecStart=/opt/meteormesh/venv-metdetpy/bin/python /opt/meteormesh/src/MeteorHub-0.9/meteor_morning.py run --config /opt/meteormesh/config/devices.json --data-dir /srv/meteor-data --metdet-repo /opt/meteormesh/MetDetPy --metdet-config /opt/meteormesh/config/metdetpy-cpu.json --max-runtime-hours 12 --max-jobs 288 --detector-timeout-seconds 1800 --min-free-gb 20
+TimeoutStartSec=13h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0077

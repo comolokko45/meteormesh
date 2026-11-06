@@ -1,0 +1,38 @@
+{
+  "schema": "meteormesh.night_scope.v1",
+  "generator": "meteormesh.daily-night.v1",
+  "status": "ARMED",
+  "night_id": "20261106-night",
+  "start_utc_ms": 1793980800000,
+  "end_utc_ms": 1794016800000,
+  "baseline_created_utc": "2026-10-30T17:18:55.467132+00:00",
+  "baseline_sha256": "990ad67dc29db91bdeb1d83bc3a764444e0dc52c41d9dabf24ad011cce67fbdd",
+  "baseline_policy_sha256": "575eae6a0f5bbddcc130ae1836d9fe4305640c982daa4a2cea0fb95ad9e50fca",
+  "excluded_segments": {
+    "cam-viva": {
+      "viva_20261029T145200Z_48518eba9507": "49df579ea5370a903f4ce9ce3919b40f63988631e10be78df47aa0cdc53f0568",
+      "viva_20261029T145445Z_33edfe7dfbeb": "811f3c9fed654b6e3c170763c2a48b780ec3cf1eb697d6e81c836b58fe298276",
+      "viva_20261029T145946Z_334149c985fe": "8f15e3ea17dbc637d6a7d1fbb688608cce0b696a4fda55d7add539fad69aff02",
+      "viva_20261029T150447Z_c5c054749b9d": "f0f34094ba22050d615257b8465ca178055cdef710c80a061e7a1e2b527fd942",
+      "viva_20261029T150948Z_2ea2dfa41700": "6cd23dd236aa862dacb51ecae7f152fa1a1a3dfc437992b4b580dbc82593b106",
+      "viva_20261029T151449Z_48628d9d7a62": "cda0a7e60470aa020ce05e74d033c7b7f2615e9e54db984981befe55802917eb",
+      "viva_20261029T151950Z_7762721ae006": "fcb87d529806624b62854b2d6d629f39a1cdc747d39bd0cff16dfeb5e337d902",
+      "viva_20261029T152451Z_138f2c357988": "a1ae49a7d663301b00cc2297ee511eda2d6427624962e64a4ed182feba7e0454",
+      "viva_20261029T152952Z_0f73e8435104": "fb9f368bf57abe97a2169c2d6fee3b1e3fb8a04437fbda29b6202d93a2d54224",
+      "viva_20261029T153453Z_ceff4ed70246": "bb03003a79a43f7001e228d91702ae935a4a8fce30a4d625d79513b3aa88e7c0"
+    },
+    "cam-ruby": {
+      "ruby_20261030T150141Z_91f57d1e5637": "c7cc62304781bfe239e3684c2c60bd7dcb324835414004604b83239e876f24e7",
+      "ruby_20261030T150442Z_acd69f259c81": "e533c75fa2913925ed8d270b03fee7af593fe03b263ff0fa07291ba826861375"
+    },
+    "cam-surya": {
+      "surya_20261030T150141Z_9b2e3d810299": "738b0d84a4d83d23c72abb6f69e95620a3ae844f3ba2563339c0dc27f2d4e500",
+      "surya_20261030T150442Z_661cb3fbb145": "d2812f14f8fbb2fce6e6a36f7f7cc6ed41ab6f1b6a669302d6b009c248bf850e"
+    }
+  },
+  "ingest_scope_enforced": true,
+  "queue_scope_enforced": true,
+  "automatic_run_allowed": true,
+  "retention_auto_delete": false,
+  "local_night_window": "19:00-05:00 Europe/Istanbul"
+}

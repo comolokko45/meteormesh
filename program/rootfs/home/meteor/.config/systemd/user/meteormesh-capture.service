@@ -1,0 +1,10 @@
+[Unit]
+Description=MeteorMesh three-phone night capture tick
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /home/meteor/.local/lib/meteormesh/meteor-capture-loop.py --tick
+Environment=PYTHONDONTWRITEBYTECODE=1
+TimeoutStartSec=90

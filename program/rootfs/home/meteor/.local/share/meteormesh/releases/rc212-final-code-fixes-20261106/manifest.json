@@ -1,0 +1,20 @@
+{
+  "release": "/home/meteor/.local/share/meteormesh/releases/rc212-final-code-fixes-20261106",
+  "created_utc": "2026-11-06T09:09:54+00:00",
+  "sha256": {
+    "lib/meteor-ops-summary.py": "9db5cc7b4acffd2cb136c91b96516b2c026100b0a09b355813e7886c843edff8",
+    "lib/meteor-heartbeat-watch.py": "4dc45495f2319368b65b6863bbf541bcbe8a4b2afaa27204d861da50de93353a",
+    "agent/MeteorAgent-1.2/agent_engine.py": "ba5d2688b08c47439f52cb2857afafe5da0e36aa3e0d24f79ecd075720d89823",
+    "agent/MeteorAgent-1.2/agent_review.py": "02758c2d8e0c54a232dcf48a877b0ae70fc3f1343f475905b38b6a581eab2183",
+    "monitor/meteor-monitor-server.py": "a17578c4677e44ae631710cfbf4669bf304e37027a687dd0533d5481c2d1426b",
+    "monitor/index.html": "bebbeaa7ddecd3012f7876f8611f8d97d3d636a2318ba94a4d190ab137f4d753"
+  },
+  "dropins": [
+    "/home/meteor/.config/systemd/user/meteormesh-status.service.d/80-rc212-final-policy.conf",
+    "/home/meteor/.config/systemd/user/meteormesh-monitor.service.d/90-rc212-final-gates.conf"
+  ],
+  "database_write": false,
+  "video_write": false,
+  "timer_enablement_change": false,
+  "analyzer_restarted": false
+}

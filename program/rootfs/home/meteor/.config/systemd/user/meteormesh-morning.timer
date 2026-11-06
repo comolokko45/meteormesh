@@ -1,0 +1,11 @@
+[Unit]
+Description=MeteorMesh daily morning automation
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Europe/Istanbul
+Persistent=true
+AccuracySec=5min
+Unit=meteormesh-morning.service
+
+[Install]
+WantedBy=timers.target

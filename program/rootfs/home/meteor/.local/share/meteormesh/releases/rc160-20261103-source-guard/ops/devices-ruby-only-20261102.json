@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {
+      "id": "cam-ruby",
+      "enabled": true,
+      "host": "192.168.0.237",
+      "port": 8080,
+      "transport": "http_lab",
+      "token_env": "METEOR_NODE_VIVA_TEST_TOKEN"
+    }
+  ]
+}

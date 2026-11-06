@@ -1,0 +1,16 @@
+[Unit]
+Description=MeteorMesh 0.13 authenticated phone heartbeat (no video access)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/control-013-20261101/server.py --config /home/meteor/.local/share/meteormesh/control-013/config.json
+WorkingDirectory=/home/meteor/.local/share/meteormesh/releases/control-013-20261101
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=20s
+NoNewPrivileges=yes
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,3 @@
+[Service]
+ExecCondition=
+ExecCondition=/bin/sh -c 'for unit in meteormesh-analyze.service meteormesh-hourly-pull.service meteormesh-morning.service; do load=$(systemctl --user show "$unit" -p LoadState --value 2>/dev/null) || exit 1; state=$(systemctl --user show "$unit" -p ActiveState --value 2>/dev/null) || exit 1; [ "$load" = loaded ] || exit 1; case "$state" in inactive|failed) :;; *) exit 1;; esac; done; exit 0'

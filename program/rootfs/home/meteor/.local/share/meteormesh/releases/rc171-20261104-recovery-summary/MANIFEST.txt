@@ -1,0 +1,6 @@
+MeteorMesh RC171 — recovery summary synchronized with RC170
+Change: status report now describes the bounded listener restart that RC170 enabled; Wi-Fi reconnect remains manual and no camera/purge action was added.
+Tests: py_compile and ops-summary --self-test.
+Rollback: meteor-ops-summary.pre-rc171.py atomically replaces the production script.
+Previous SHA-256: 5369340a332ba8b58db32bbedb4043546b1ef85aa6d5081b8da1666635fb02e5
+Candidate SHA-256: 67b97c7c564dd236b51b86143bd841b43a0ed2cf4124b7a54b4fbf1ffa9c0471

@@ -1,0 +1,11 @@
+[Unit]
+Description=MeteorMesh verified READY phone pull schedule
+
+[Timer]
+OnCalendar=*-*-* *:02/5:00 Europe/Istanbul
+Persistent=true
+AccuracySec=10s
+Unit=meteormesh-hourly-pull.service
+
+[Install]
+WantedBy=timers.target

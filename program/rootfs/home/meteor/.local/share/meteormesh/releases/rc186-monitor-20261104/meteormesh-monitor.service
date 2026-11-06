@@ -1,0 +1,17 @@
+[Unit]
+Description=MeteorMesh read-only local information monitor
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/meteormesh/releases/rc186-monitor-20261104
+ExecStart=/usr/bin/python3 -B %h/.local/share/meteormesh/releases/rc186-monitor-20261104/meteor-monitor-server.py
+Restart=on-failure
+RestartSec=5
+CPUWeight=10
+MemoryMax=96M
+NoNewPrivileges=yes
+Nice=10
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-06T11:21:03.019076+00:00",
+  "previous_hook": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc216-cleanup-continuation-20261106/rc216_cleanup_gate.py ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+  "override": "/home/meteor/.config/systemd/user/meteormesh-analyze.service.d/~rc217-cleanup-capacity.conf",
+  "sha256": {
+    "after_analysis_with_backup.py": "84a462a2befedeb2b46ad3d87ce615104faa3c1d83223a6cf87cb5072be8a697",
+    "cleanup_gate.py": "118798a967af093abe0d1a91efd5c5ac5fb7443ce9b48649d41b69ea8436f82b",
+    "post-analysis-condition-gate.py": "1297425cc9b346051ba8eedc536642ca30b83f3ae5e8d86ecd3ef7f38db37a1d"
+  },
+  "rollback": "Remove only /home/meteor/.config/systemd/user/meteormesh-analyze.service.d/~rc217-cleanup-capacity.conf then systemctl --user daemon-reload; no analyzer restart"
+}

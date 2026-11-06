@@ -1,0 +1,15 @@
+{
+  "release": "RC166-analysis-start-limit",
+  "deployed_utc": "2026-11-03T23:57:44.830941+00:00",
+  "root_cause": "StartLimitBurst=4 counted successful scheduled 15-minute analysis launches; the fifth launch within the one-hour interval hit start-limit.",
+  "change": "Keep the existing one-hour interval and raise burst to 8: four scheduled rounds plus four bounded restart attempts. Existing data/job lock and RestartSec policy unchanged.",
+  "active_scope": "meteormesh-analyze.service Unit StartLimitBurst only",
+  "dropin": "/home/meteor/.config/systemd/user/meteormesh-analyze.service.d/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rc166-analysis-start-limit.conf",
+  "dropin_sha256": "fee1b141bd7b10dcee5ed9eeaa507475711ca9d870e86e98650ecc546e7cce7a",
+  "previous_effective": "StartLimitIntervalSec=1h; StartLimitBurst=4",
+  "rollback": "Remove RC166 drop-in and daemon-reload; previous RC162 drop-in is preserved.",
+  "files": {
+    "rc166-analysis-start-limit.conf": "fee1b141bd7b10dcee5ed9eeaa507475711ca9d870e86e98650ecc546e7cce7a",
+    "rollback/rc162-analysis-rate-window.pre-rc166.conf": "1d68b6e8d3fb499b2f64262c574284904d35d7470746563c8962993fa26c4eb6"
+  }
+}

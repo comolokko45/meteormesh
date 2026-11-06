@@ -1,0 +1,285 @@
+package org.meteormesh.node
+
+import android.content.Context
+import android.os.BatteryManager
+import android.os.Build
+import android.os.PowerManager
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import org.json.JSONObject
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.File
+import java.io.OutputStream
+import java.io.RandomAccessFile
+import java.math.BigInteger
+import java.net.SocketException
+import java.nio.charset.StandardCharsets
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Date
+import java.util.concurrent.Executors
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLServerSocket
+import javax.net.ssl.SSLSocket
+import javax.security.auth.x500.X500Principal
+
+/** Read-only HTTPS server. All access except the TLS handshake requires a pairing token.
+ *  This is an alpha implementation and requires on-device certificate verification tests.
+ */
+class LocalTlsServer(private val context: Context, private val segments: SegmentStore) {
+    private val workers = Executors.newFixedThreadPool(3) { r ->
+        Thread(r, "meteor-tls-worker").apply { isDaemon = true }
+    }
+    private var listener: SSLServerSocket? = null
+    @Volatile private var running = false
+
+    fun start() {
+        if (running) return
+        running = true
+        Thread({
+            try {
+                val tls = tlsContext(context)
+                val socket = tls.serverSocketFactory.createServerSocket(8443) as SSLServerSocket
+                listener = socket
+                socket.enabledProtocols = socket.supportedProtocols.filter {
+                    it == "TLSv1.2" || it == "TLSv1.3"
+                }.toTypedArray()
+                socket.reuseAddress = true
+                while (running) {
+                    val client = try { socket.accept() as SSLSocket } catch (_: SocketException) { break }
+                    workers.execute { client.use { handle(it) } }
+                }
+            } catch (e: Exception) {
+                context.getSharedPreferences("meteor-state", Context.MODE_PRIVATE)
+                    .edit().putString("last_error", "LAN TLS server: ${e.javaClass.simpleName}: ${e.message}").apply()
+            }
+        }, "meteor-tls-listener").apply { isDaemon = true }.start()
+    }
+
+    fun stop() {
+        running = false
+        try { listener?.close() } catch (_: Exception) { }
+        workers.shutdownNow()
+    }
+
+    private fun handle(socket: SSLSocket) {
+        try {
+            socket.soTimeout = 10_000
+            val input = BufferedInputStream(socket.inputStream)
+            val output = BufferedOutputStream(socket.outputStream)
+            val first = readAsciiLine(input, 4096) ?: return
+            val request = first.split(' ')
+            if (request.size < 3 || request[0] != "GET") {
+                sendText(output, 405, "Method Not Allowed", "text/plain", "GET only")
+                return
+            }
+            val path = request[1].substringBefore('?')
+            var auth: String? = null
+            var range: String? = null
+            var count = first.length
+            while (true) {
+                val line = readAsciiLine(input, 4096) ?: return
+                count += line.length
+                if (count > 16_384) return
+                if (line.isEmpty()) break
+                when (line.substringBefore(':').lowercase()) {
+                    "authorization" -> auth = line.substringAfter(':').trim()
+                    "range" -> range = line.substringAfter(':').trim()
+                }
+            }
+
+            val expected = "Bearer ${pairingToken(context)}"
+            val authorized = auth != null && MessageDigest.isEqual(
+                auth.toByteArray(StandardCharsets.UTF_8),
+                expected.toByteArray(StandardCharsets.UTF_8)
+            )
+            if (!authorized) {
+                sendText(output, 401, "Unauthorized", "application/json", "{\"error\":\"pairing_required\"}")
+                return
+            }
+            when {
+                path == "/api/v1/health" -> sendText(
+                    output, 200, "OK", "application/json", health().toString()
+                )
+                path == "/api/v1/capabilities" -> sendText(
+                    output, 200, "OK", "application/json", CameraInventory.json(context).toString()
+                )
+                path == "/api/v1/segments" -> sendText(
+                    output, 200, "OK", "application/json", JSONObject()
+                        .put("segments", segments.listReady()).toString()
+                )
+                path == "/api/v1/retention" -> sendText(
+                    output, 200, "OK", "application/json", "{\"mode\":\"dry-run\",\"auto_delete\":false}"
+                )
+                path.startsWith("/api/v1/segments/") && path.endsWith("/meta") -> {
+                    val id = path.removePrefix("/api/v1/segments/").removeSuffix("/meta")
+                    val meta = segments.metadataFor(id)
+                    if (meta == null) sendText(output, 404, "Not Found", "text/plain", "not found")
+                    else sendText(output, 200, "OK", "application/json", meta.toString())
+                }
+                path.startsWith("/api/v1/segments/") && path.endsWith("/file") -> {
+                    val id = path.removePrefix("/api/v1/segments/").removeSuffix("/file")
+                    val file = segments.completedVideo(id)
+                    if (file == null) sendText(output, 404, "Not Found", "text/plain", "not found")
+                    else sendFile(output, file, range)
+                }
+                else -> sendText(output, 404, "Not Found", "text/plain", "not found")
+            }
+        } catch (_: Exception) { /* One disconnected client never interrupts camera recording. */ }
+    }
+
+    private fun health(): JSONObject {
+        val prefs = context.getSharedPreferences("meteor-state", Context.MODE_PRIVATE)
+        val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return JSONObject().apply {
+            put("api_version", "v1-alpha")
+            put("node_version", "0.5")
+            put("device_id", Build.DEVICE)
+            put("state", prefs.getString("state", "idle"))
+            put("last_error", prefs.getString("last_error", ""))
+            put("battery_percent", battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
+            put("thermal_status", if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else JSONObject.NULL)
+            put("free_bytes", segments.freeBytes())
+            put("segments_ready", segments.listReady().length())
+            put("unindexed_files_retained", segments.unindexedFileCount())
+            put("retention_auto_delete", false)
+        }
+    }
+
+    private fun sendText(out: OutputStream, code: Int, reason: String, contentType: String, body: String) {
+        val bytes = body.toByteArray(StandardCharsets.UTF_8)
+        val headers = "HTTP/1.1 $code $reason\r\n" +
+            "Content-Type: $contentType; charset=utf-8\r\n" +
+            "Content-Length: ${bytes.size}\r\n" +
+            "Cache-Control: no-store\r\n" +
+            "Connection: close\r\n\r\n"
+        out.write(headers.toByteArray(StandardCharsets.US_ASCII))
+        out.write(bytes)
+        out.flush()
+    }
+
+    private fun sendFile(out: OutputStream, file: File, range: String?) {
+        val length = file.length()
+        if (length <= 0) {
+            sendText(out, 404, "Not Found", "text/plain", "empty file")
+            return
+        }
+        val startEnd: Pair<Long, Long>? = if (range == null) 0L to (length - 1) else parseRange(range, length)
+        if (startEnd == null) {
+            val headers = "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */$length\r\n" +
+                "Content-Length: 0\r\nConnection: close\r\n\r\n"
+            out.write(headers.toByteArray(StandardCharsets.US_ASCII))
+            out.flush()
+            return
+        }
+        val (start, end) = startEnd
+        val count = end - start + 1
+        val partial = range != null
+        val headers = "HTTP/1.1 ${if (partial) "206 Partial Content" else "200 OK"}\r\n" +
+            "Content-Type: video/mp4\r\n" +
+            "Content-Length: $count\r\n" +
+            "Accept-Ranges: bytes\r\n" +
+            (if (partial) "Content-Range: bytes $start-$end/$length\r\n" else "") +
+            "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+        out.write(headers.toByteArray(StandardCharsets.US_ASCII))
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(start)
+            val buf = ByteArray(64 * 1024)
+            var remaining = count
+            while (remaining > 0) {
+                val n = raf.read(buf, 0, minOf(buf.size.toLong(), remaining).toInt())
+                if (n <= 0) break
+                out.write(buf, 0, n)
+                remaining -= n
+            }
+        }
+        out.flush()
+    }
+
+    private fun parseRange(value: String, size: Long): Pair<Long, Long>? {
+        if (!value.startsWith("bytes=") || value.contains(',')) return null
+        val bits = value.removePrefix("bytes=").split('-', limit = 2)
+        if (bits.size != 2) return null
+        return try {
+            if (bits[0].isBlank()) {
+                val suffix = bits[1].toLong()
+                if (suffix <= 0) null else maxOf(0, size - suffix) to (size - 1)
+            } else {
+                val start = bits[0].toLong()
+                val end = if (bits[1].isBlank()) size - 1 else minOf(size - 1, bits[1].toLong())
+                if (start < 0 || start >= size || end < start) null else start to end
+            }
+        } catch (_: NumberFormatException) { null }
+    }
+
+    private fun readAsciiLine(input: BufferedInputStream, maxChars: Int): String? {
+        val bytes = ArrayList<Byte>()
+        while (bytes.size <= maxChars) {
+            val n = input.read()
+            if (n < 0) return null
+            if (n == '\n'.code) {
+                if (bytes.isNotEmpty() && bytes.last() == '\r'.code.toByte()) bytes.removeAt(bytes.size - 1)
+                return String(bytes.toByteArray(), StandardCharsets.US_ASCII)
+            }
+            bytes.add(n.toByte())
+        }
+        return null
+    }
+
+    companion object {
+        private const val SERVER_ALIAS = "MeteorNode_v01_tls"
+
+        // The UI and TLS listener may first request the token simultaneously.
+        // Serialize creation so the displayed token is always the persisted one.
+        @Synchronized fun pairingToken(context: Context): String {
+            val prefs = context.getSharedPreferences("meteor-security", Context.MODE_PRIVATE)
+            val existing = prefs.getString("token", null)
+            if (existing != null) return existing
+            val bytes = ByteArray(32).apply { SecureRandom().nextBytes(this) }
+            val created = bytes.joinToString("") { "%02x".format(it) }
+            if (!prefs.edit().putString("token", created).commit()) error("Pairing key not persisted")
+            return created
+        }
+
+        fun fingerprintOrStatus(context: Context): String {
+            return try {
+                val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                val cert = store.getCertificate(SERVER_ALIAS)
+                if (cert == null) "sunucu açılınca oluşacak"
+                else MessageDigest.getInstance("SHA-256").digest(cert.encoded)
+                    .joinToString(":") { "%02X".format(it) }
+            } catch (e: Exception) { "sertifika henüz hazır değil: ${e.javaClass.simpleName}" }
+        }
+
+        private fun tlsContext(context: Context): SSLContext {
+            pairingToken(context)
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (!store.containsAlias(SERVER_ALIAS)) {
+                val now = System.currentTimeMillis()
+                val spec = KeyGenParameterSpec.Builder(
+                    SERVER_ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+                )
+                    .setKeySize(2048)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .setCertificateSubject(X500Principal("CN=MeteorNode"))
+                    .setCertificateSerialNumber(BigInteger.valueOf(now))
+                    .setCertificateNotBefore(Date(now - 60_000))
+                    .setCertificateNotAfter(Date(now + 365L * 24 * 60 * 60 * 1000))
+                    .build()
+                KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+                    .apply { initialize(spec) }.generateKeyPair()
+            }
+            val km = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+            km.init(store, null)
+            return SSLContext.getInstance("TLS").apply {
+                init(km.keyManagers, null, SecureRandom())
+            }
+        }
+    }
+}

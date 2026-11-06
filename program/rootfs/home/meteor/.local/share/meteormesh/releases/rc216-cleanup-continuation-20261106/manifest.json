@@ -1,0 +1,8 @@
+{
+  "previous_hook": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc210-backup-proof-20261105/ops/post-analysis-condition-gate.py ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\n",
+  "active_hook": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc216-cleanup-continuation-20261106/rc216_cleanup_gate.py ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\n",
+  "override": "/home/meteor/.config/systemd/user/meteormesh-analyze.service.d/~rc216-cleanup-continuation.conf",
+  "sha256": "d6d1635a508e2a1f686386bb4264cb7d6d848c1eb366645dd94cfe630cb98d26",
+  "max_deletes": 5,
+  "analyzer_restarted": false
+}

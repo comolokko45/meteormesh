@@ -1,0 +1,13 @@
+{
+  "created_utc": "2026-11-06T09:47:11.654975+00:00",
+  "previous": "/home/meteor/.local/share/meteormesh/releases/rc214-monitor-integrity-20261106",
+  "dropins": [
+    "/home/meteor/.config/systemd/user/meteormesh-monitor.service.d/93-rc215-coverage-policy.conf",
+    "/home/meteor/.config/systemd/user/meteormesh-capture.service.d/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rc215-capture-lan.conf"
+  ],
+  "sha256": {
+    "monitor/meteor-monitor-server.py": "1295a1c37c60247f67739305e16d389dd7373826b43e3c823a0bf21faa444443",
+    "monitor/index.html": "281bfdceac133029a4f3579db3d18a6dfafcc1d4cc3255eb2ad15e7d39a45903",
+    "meteor-capture-lan-ready.py": "2fcb8119d97ac3c579025bf202b562dcbfaccdc8a7f1c0c8c5a9eca42e012e56"
+  }
+}

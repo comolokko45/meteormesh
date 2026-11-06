@@ -1,0 +1,11 @@
+[Unit]
+Description=MeteorMesh bounded analysis rounds between verified pulls
+
+[Timer]
+OnCalendar=*-*-* *:10/15:00 Europe/Istanbul
+AccuracySec=30s
+Persistent=true
+Unit=meteormesh-analyze.service
+
+[Install]
+WantedBy=timers.target

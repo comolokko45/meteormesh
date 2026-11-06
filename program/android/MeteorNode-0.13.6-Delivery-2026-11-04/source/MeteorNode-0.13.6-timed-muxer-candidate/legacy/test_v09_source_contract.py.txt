@@ -1,0 +1,107 @@
+"""0.9 source compatibility + permission/safety contracts; not device runtime tests."""
+from pathlib import Path
+import unittest, hashlib, xml.etree.ElementTree as ET
+ROOT=Path(__file__).resolve().parent
+J=ROOT/'app/src/main/java/org/meteormesh/node'
+def src(name):return (J/name).read_text()
+# Reference hashes from the delivered, unmodified MeteorNode 0.8 source snapshot.
+PRESERVED={
+    'CameraInventory.kt':'bc7690a6e54dd1ad44aefb13fae01b822b3235e474abb5ca7b4a9a1f5ce0e8f4',
+    'SegmentStore.kt':'7619099a184362f1875d43cd3d7a742a9b848a3f28c914560bb44f945f6c6f19',
+    'PublicVideoExporter.kt':'48828905c66e29af74bdcbd5a997fc5e789a4eebde4f954ef68f2a1168c0fd76',
+    'RemoteSettings.kt':'16e2a508f06cb6afa9f0b73aa7c6460fa1b3e21615ed0f3a8b141919d5df5ad4',
+}
+
+class TestContracts(unittest.TestCase):
+    def test_identity_and_old_versions_are_isolated(self):
+        g=(ROOT/'app/build.gradle.kts').read_text()
+        self.assertIn('org.meteormesh.node.remotesetuptest',g)
+        self.assertIn('0.9.0-remote-setup-lan-test',g)
+        for old in ('org.meteormesh.node.sharedkeytest','org.meteormesh.node.remotetest'):
+            self.assertNotIn('applicationId = "'+old+'"',g)
+
+    def test_unchanged_recording_data_and_allowlist(self):
+        for name,expected in PRESERVED.items():
+            self.assertEqual(hashlib.sha256((J/name).read_bytes()).hexdigest(),expected,name)
+        s=src('RemoteSettings.kt')
+        self.assertIn('segment_seconds',s)
+        self.assertIn('too many settings',s)
+        self.assertIn('unsupported setting',s)
+        self.assertIn('auto_delete", false',s)
+
+    def test_permissions_and_android_ui(self):
+        m=ET.parse(ROOT/'app/src/main/AndroidManifest.xml').getroot()
+        ns='{http://schemas.android.com/apk/res/android}'
+        names=[p.attrib.get(ns+'name') for p in m.findall('uses-permission')]
+        for name in ('android.permission.CAMERA','android.permission.POST_NOTIFICATIONS',
+                     'android.permission.WRITE_SETTINGS','android.permission.FOREGROUND_SERVICE_CAMERA'):
+            self.assertIn(name,names)
+        self.assertNotIn('android.permission.MANAGE_EXTERNAL_STORAGE',names)
+        self.assertNotIn('android.permission.QUERY_ALL_PACKAGES',names)
+        self.assertNotIn('android.permission.BIND_ACCESSIBILITY_SERVICE',names)
+        app=m.find('application')
+        self.assertEqual(app.get(ns+'allowBackup'),'false')
+        for service in app.findall('service'):
+            self.assertEqual(service.get(ns+'exported'),'false')
+        activity=src('MainActivity.kt')
+        self.assertIn('requestNeededPermissions()',activity)
+        self.assertIn('Settings.ACTION_MANAGE_WRITE_SETTINGS',activity)
+        self.assertIn('Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS',activity)
+        self.assertIn('ACTION_ARM',activity)
+        self.assertIn('TEK ADIM: LAN + UZAKTAN KAMERA HAZIRLA',activity)
+        self.assertIn('setPositiveButton("Hazirla")',activity)
+        self.assertIn('PermissionStatus.snapshot',activity)
+        perm=src('PermissionStatus.kt')
+        self.assertIn('Settings.System.canWrite(context)',perm)
+        self.assertIn('"all_android_permissions_automatic", false',perm)
+
+    def test_camera_armed_only_from_phone_no_bypass(self):
+        service=src('MeteorCaptureService.kt')
+        self.assertIn('ACTION_ARM -> {',service)
+        self.assertIn('startForegroundRecording()',service)
+        self.assertIn('if (!desiredRecording) saveState("armed_idle")',service)
+        self.assertIn('remoteForegroundReady = true',service)
+        self.assertIn('val s = instance ?: return false',service)
+        self.assertNotIn('context.startForegroundService',service)
+        self.assertIn('RemoteSettings.segmentMs(',service)
+        self.assertIn('RemoteSettings.bitrate(',service)
+        self.assertIn('store.finalizeAsync(',service)
+        self.assertIn('remote_stop_complete',service)
+
+    def test_api_authorized_and_status(self):
+        code=src('LocalHttpServer.kt')
+        self.assertIn('MessageDigest.isEqual',code)
+        self.assertLess(code.index('MessageDigest.isEqual'),code.index('if (method == "POST")'))
+        for path in ('/api/v1/status','/api/v1/permissions','/api/v1/settings',
+                     '/api/v1/control/start','/api/v1/control/stop','/api/v1/segments'):
+            self.assertIn(path,code)
+        self.assertIn('RemoteSettings.enabled(context)',code)
+        self.assertNotIn('/api/v1/delete',code)
+        self.assertNotIn('/api/v1/shell',code)
+        self.assertIn('"retention_auto_delete", false',code)
+        self.assertIn('0.9.0-remote-setup-lan-test',code)
+
+    def test_common_password_and_secret_not_on_health(self):
+        http=src('LocalHttpServer.kt')
+        self.assertIn('setPairingToken(context: Context, newToken: String)',http)
+        self.assertIn('newToken.length in 12..64',http)
+        self.assertIn('putString("token", newToken)',http)
+        self.assertNotIn('put("pairing_token"',http)
+        self.assertNotIn('put("token"',http)
+        ui=src('MainActivity.kt')
+        self.assertIn('ORTAK LAN SIFRESINI KAYDET',ui)
+        self.assertIn('sharedKeyInput.text.clear()',ui)
+
+    def test_lan_service_and_local_storage_unchanged(self):
+        l=src('MeteorLanService.kt')
+        self.assertIn('FOREGROUND_SERVICE_TYPE_DATA_SYNC',l)
+        self.assertIn('override fun onTimeout',l)
+        self.assertIn('START_NOT_STICKY',l)
+        exporter=src('PublicVideoExporter.kt')
+        self.assertIn('MeteorMesh_RemoteTest',exporter)
+        self.assertNotIn('source.delete()',exporter)
+        client=(ROOT/'linux/meteor_remote.py').read_text()
+        self.assertIn('"Authorization": "Bearer " + token',client)
+        self.assertIn('METEORNODE_PAIRING_TOKEN',client)
+
+if __name__=='__main__':unittest.main()

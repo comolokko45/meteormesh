@@ -1,0 +1,14 @@
+{
+  "release": "RC164-source-missing-events",
+  "created_utc": "2026-11-03T23:27Z",
+  "files": {
+    "after_analysis_rc151.py": "732f117c93c0ceb42ed25c23ec649581d1279084956d5673a9ab74b57ba394bf",
+    "after_analysis_with_backup.py": "9546de9f40e0e89b5d09368cb2b5b199b089de2c68b9c103ea0a82dd2075c04e",
+    "meteor-auto-package.py": "3dfaa3cc24ad485304f98d8a34009ed602dfc8a1746358cbfb0f68d06ed9042a",
+    "meteor-event-review.py": "b9cfe0207eeecc181cba6b86db7f0a2abbddeac628e1f7ccb9767cf7983ff238",
+    "meteor-night-snapshot.py": "1652e9e16af1c5a0fbc5197e53affea7127a2feb4532ed1bc408f0e5297e052d",
+    "meteor_db_backup.py": "e8234bff49721e065a7f6050c419e3c65e29c842085ff139f391a6fc3a4dbdf3"
+  },
+  "active_production_changed": false,
+  "rollback": "No runtime change has been made; restore the previous RC153 ExecStopPost drop-in if deployed."
+}

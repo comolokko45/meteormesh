@@ -1,0 +1,6 @@
+devices.json
+meteor-data/
+hub_capabilities*.json
+*.sqlite3
+__pycache__/
+*.pyc

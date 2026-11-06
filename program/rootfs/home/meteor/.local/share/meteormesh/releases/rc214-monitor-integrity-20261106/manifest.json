@@ -1,0 +1,11 @@
+{
+  "created_utc": "2026-11-06T09:35:27.639283+00:00",
+  "release": "/home/meteor/.local/share/meteormesh/releases/rc214-monitor-integrity-20261106",
+  "previous": "/home/meteor/.local/share/meteormesh/releases/rc213-monitor-live-summary-20261106",
+  "sha256": {
+    "monitor/index.html": "922f812a0254c45aef3389abb926a4ca435401495de5ac79a975c7f8e8435a4e",
+    "monitor/meteor-monitor-server.py": "d1e34df96792d967efeb7ab6c7a6944c4c08dc0003c892a807a483dc7ea34330"
+  },
+  "tests": "11 isolated gate cases + 9 JavaScript refresh cases passed locally",
+  "scope": "Monitor only; no video/database/capture/analyzer mutation"
+}

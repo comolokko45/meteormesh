@@ -1,0 +1,6 @@
+MeteorMesh RC169 — explicit Control-013 heartbeat classification
+Date: 2026-11-04 UTC
+Change: issue_classifications now emits CONTROL_HEARTBEAT_UNKNOWN for NEVER_SEEN and other non-ONLINE/non-STALE states; fresh ONLINE is required to clear it. STALE remains a distinct code.
+No service, timer, database, phone, or recording data changed.
+Previous production SHA-256: 356dea081576ec8041c08102067262a22368da82e704b2c212f4edc346eb9304
+Candidate SHA-256: 5369340a332ba8b58db32bbedb4043546b1ef85aa6d5081b8da1666635fb02e5

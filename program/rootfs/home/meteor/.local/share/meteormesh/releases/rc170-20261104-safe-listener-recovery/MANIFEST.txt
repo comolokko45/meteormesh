@@ -1,0 +1,15 @@
+MeteorMesh RC170 — bounded, allow-listed Control-013 listener recovery
+Date: 2026-11-04 UTC
+Root cause: Control-013 accepts only restart_listener and MeteorLanService implements it safely, but the G62 observer had no bounded dispatcher.
+Fix: existing heartbeat watcher may queue only restart_listener. Eligibility requires a fresh <=180-second authenticated heartbeat, exact 0.13.5 candidate version, lan_listening=false, HTTP API unreachable on >=2 probes for >=60 seconds, and no pending command.
+Limits: 15-minute cooldown; at most 2 attempts per hour. No Wi-Fi toggle, force-stop, reboot, camera start, or deletion.
+Enablement: explicit --allow-safe-listener-recovery flag on existing status ExecStartPost; no new service, timer, database, or dependency. Current 0.13.4 phones do not pass the version gate.
+TLS: command request validates against the existing local Control-013 certificate.
+Tests: py_compile PASS; watcher self-test PASS; dry-run sends no command; eligibility, old-version/stale/pending rejection, allow-list and cooldown checks PASS.
+Rollback code: meteor-heartbeat-watch.pre-rc170.py (pre-RC170); meteor-heartbeat-watch.pre-rc170-final-metadata.py (intermediate RC170 candidate).
+Rollback unit drop-in: 99-heartbeat-watch.pre-rc170.conf; restore atomically then run systemctl --user daemon-reload.
+Previous production code SHA-256: ba4db589da74f19141f7abb20e6b618fc11261f022e2fe459c652c3fb1e04f05
+Intermediate candidate SHA-256: 0495affa5838500052358a902321b55580963d6b02a2bc89a33ff9739be9e0c9
+Final deployed code SHA-256: d65e50d92a9ef4bf0ca5a75d0849d7fdaf06cf6137b2850bd0927df1ecdfbf1c
+Previous status drop-in SHA-256: b899d02ff50b49590bd6ab727b1039e0467b8d6384cae3ddc4f685184b13fb68
+Active status drop-in SHA-256: cb3404d553cedcc6344bb0988dcc929a9afc596de2202515e5436570c9b3f784

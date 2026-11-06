@@ -1,0 +1,15 @@
+{
+  "schema": "meteormesh.local-status.v1",
+  "checked_tr": "2026-10-30T13:00:00+03:00",
+  "status": "OK",
+  "hdd": {"path": "/srv/meteor-data", "is_mount": true, "fstype": "ext4", "uuid": "444a8a6d-090a-456c-8a9d-d99665c32574", "free_gib": 433.8, "total_gib": 465.8},
+  "database": {"state": "READ_ONLY_OK", "jobs": {}, "ingest": {}, "detector_runs": 0},
+  "last_morning": {"state": "NO_REPORT_YET", "outcome": null},
+  "morning_timer": {"enabled": "disabled", "active": "inactive"},
+  "memory": {"available_gib": 2.0},
+  "ntp_synchronized": "yes",
+  "issues": [],
+  "read_only": true,
+  "runs_detector": false,
+  "can_delete": false
+}

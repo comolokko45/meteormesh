@@ -1,0 +1,44 @@
+{
+  "at": "2026-11-06T12:47:08+03:00",
+  "route": "CAPTURE_LAN_READY: direct route to configured phone network",
+  "capture_pre": "{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc215-final-audit-20261106/meteor-capture-lan-ready.py --timeout 60 ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+  "queue": {
+    "state": "IN_PROGRESS",
+    "queue": {
+      "WAITING": 136,
+      "RUNNING": 1,
+      "SUCCEEDED": 223,
+      "FAILED": 0,
+      "NO_JOB_SEGMENTS": 0
+    },
+    "scope_rotation_due_local": null
+  },
+  "cleanup": {
+    "state": "ENABLED_EXECUTION_GATED",
+    "auto_delete_enabled": true,
+    "deleted_video_count": 0,
+    "deletion_performed": false,
+    "retention_enabled_in_run": false,
+    "hub_delete_enabled_in_run": false,
+    "source_retirement_table_present": true,
+    "approval_required_before_enabling": false,
+    "auto_delete_enabled_utc": "2026-11-06T06:59:07+00:00",
+    "policy_state": "READ_OK",
+    "last_deleted_utc": "2026-11-06T09:38:10.798752+00:00",
+    "software_status": "PARTIAL",
+    "software_evidence": "Sınırlı politika/negatif-silme fişi kanıtı tamam değil (etkin=True, kap=0, fiş=76).",
+    "operations_status": "PASS",
+    "operations_evidence": "Etkinleştirme sonrası doğal analiz kancası HDD MP4 temizledi; son fiş 2026-11-06T09:38:10+00:00.",
+    "post_activation_delete_confirmed": true
+  },
+  "gaps": [],
+  "overall": {
+    "level": "WARNING",
+    "codes": [
+      "HISTORICAL_FAILED_JOBS_PRESENT",
+      "STORAGE_LOW:surya"
+    ],
+    "historical_failed_jobs": 119,
+    "night_fully_accepted": false
+  }
+}

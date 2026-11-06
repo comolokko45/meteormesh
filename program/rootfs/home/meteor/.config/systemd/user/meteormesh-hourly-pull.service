@@ -1,0 +1,23 @@
+[Unit]
+Description=MeteorMesh hourly verified phone pull (sync only)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/srv/meteor-data
+ConditionPathIsMountPoint=/srv/meteor-data
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/meteor/.config/meteormesh/tokens.env
+EnvironmentFile=-/home/meteor/.config/meteormesh/storage-admin.env
+WorkingDirectory=/home/meteor/.local/share/meteormesh/releases/rc156-20261101-night-status/MeteorHub
+Environment=OMP_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=2
+ExecCondition=/bin/sh -c '! systemctl --user is-active --quiet meteormesh-analyze.service && ! systemctl --user is-active --quiet meteormesh-midnight.service && ! systemctl --user is-active --quiet meteormesh-morning.service'
+ExecStartPre=/usr/bin/python3 -B /home/meteor/.local/lib/meteormesh/meteor-hourly-scope.py
+ExecStart=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc156-20261101-night-status/MeteorHub/meteor_morning.py run --config /home/meteor/.config/meteormesh/devices-three-lab-rc12.json --night-scope /home/meteor/.local/share/meteormesh/staging/fullnight/night-scope-hourly-current.json --data-dir /srv/meteor-data --metdet-repo /opt/meteormesh/MetDetPy --metdet-config /opt/meteormesh/MetDetPy/config/m3det_normal.json --max-jobs 500 --max-runtime-hours 1 --detector-timeout-seconds 1800 --min-free-gb 100 --phase sync
+ExecStartPost=/usr/bin/python3 -B /home/meteor/.local/lib/meteormesh/meteor-hourly-purge.py
+TimeoutStartSec=55min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0077

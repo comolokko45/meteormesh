@@ -1,0 +1,67 @@
+{
+  "generated_local": "2026-11-06T12:35:28+03:00",
+  "overall": {
+    "level": "WARNING",
+    "codes": [
+      "HISTORICAL_FAILED_JOBS_PRESENT",
+      "STORAGE_LOW:surya"
+    ],
+    "historical_failed_jobs": 119,
+    "night_fully_accepted": false
+  },
+  "source": "RC214 güncel OpsSummary (--preview) + canlı RC191 temizlik politikası",
+  "ops_alerts": {
+    "state": "READ_OK",
+    "schema": "meteormesh.ops-alert-state.v1",
+    "active": [
+      "STORAGE_LOW:surya"
+    ],
+    "last_digest_day": "2026-11-06",
+    "history_available": false
+  },
+  "gates": {
+    "predawn": {
+      "status": "PASS",
+      "evidence": "05:30 timer, sync raporu ve güncel NightScope eşleşti; analyzer başlatıldı. night=20261105-night, sync=PARTIAL_REVIEW_REQUIRED, analyzer=RUNNING, source-ready=150, source-missing=99. Bu PASS yalnız başlangıç/scope kapısıdır; kuyruk kapanışı ayrı değerlendirilir."
+    },
+    "analysis_drain": {
+      "status": "PARTIAL",
+      "evidence": "Analiz sürüyor: WAITING=142, RUNNING=1, SUCCEEDED=217, FAILED=0."
+    }
+  },
+  "queue": {
+    "state": "IN_PROGRESS",
+    "queue": {
+      "WAITING": 142,
+      "RUNNING": 1,
+      "SUCCEEDED": 217,
+      "FAILED": 0,
+      "NO_JOB_SEGMENTS": 0
+    },
+    "scope_rotation_due_local": null
+  },
+  "timers": [
+    {
+      "unit": "meteormesh-morning.timer",
+      "activates": "meteormesh-morning.service",
+      "next_local": null,
+      "last_local": null,
+      "scheduled": false,
+      "active_state": "inactive",
+      "unit_file_state": "disabled",
+      "activates_state": "inactive",
+      "timer_state": "POLICY_DISABLED"
+    },
+    {
+      "unit": "meteormesh-predawn.timer",
+      "activates": "meteormesh-predawn.service",
+      "next_local": "2026-11-07T05:30:00+03:00",
+      "last_local": "2026-11-06T05:30:23+03:00",
+      "scheduled": true,
+      "active_state": "active",
+      "unit_file_state": "enabled",
+      "activates_state": "inactive",
+      "timer_state": "SCHEDULED"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+av==19.0.2
+dacite==1.9.2
+flatbuffers==25.12.19
+numpy==2.5.4
+onnxruntime==1.31.1
+opencv-python-headless==5.0.0.93
+packaging==26.3
+protobuf==7.36.2
+pyexiv2==2.16.0
+rawpy==0.27.1
+tqdm==4.70.1

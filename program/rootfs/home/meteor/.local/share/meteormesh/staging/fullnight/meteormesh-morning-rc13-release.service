@@ -1,0 +1,20 @@
+[Unit]
+Description=MeteorMesh full-night candidate - NOT ENABLED
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/srv/meteor-data
+ConditionPathIsMountPoint=/srv/meteor-data
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/meteor/.local/share/meteormesh/releases/rc13-20261030-night-scope/MeteorHub
+EnvironmentFile=/home/meteor/.config/meteormesh/tokens.env
+Environment=METEORMESH_DETECTOR_PYTHON=/opt/meteormesh/venv-metdetpy/bin/python
+Environment=METEORMESH_DETECTOR_CPU_MODE=1
+ExecStartPre=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc13-20261030-night-scope/MeteorHub/mm01_readonly_preflight.py
+ExecStartPre=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/staging/fullnight/meteor-auto-night-policy.py --write
+ExecStart=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc13-20261030-night-scope/MeteorHub/meteor_morning.py run --config /home/meteor/.config/meteormesh/devices-three-lab-rc12.json --night-scope /home/meteor/.local/share/meteormesh/staging/fullnight/night-scope-current.json --data-dir /srv/meteor-data --metdet-repo /opt/meteormesh/MetDetPy --metdet-config /opt/meteormesh/MetDetPy/config/m3det_normal.json --max-segments-per-device 100 --max-jobs 300 --max-runtime-hours 12 --detector-timeout-seconds 1800 --min-free-gb 100
+TimeoutStartSec=13h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

@@ -1,0 +1,13 @@
+[Unit]
+Description=MeteorMesh RC1.4 analysis queue after morning sync
+RequiresMountsFor=/srv/meteor-data
+ConditionPathIsMountPoint=/srv/meteor-data
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/meteor/.local/share/meteormesh/releases/rc14-20261031-split/MeteorHub
+ExecStart=/usr/bin/python3 -B /home/meteor/.local/share/meteormesh/releases/rc14-20261031-split/MeteorHub/meteor_morning.py run --config /home/meteor/.config/meteormesh/devices-three-lab-rc12.json --night-scope /home/meteor/.local/share/meteormesh/staging/fullnight/night-scope-current.json --data-dir /srv/meteor-data --metdet-repo /opt/meteormesh/MetDetPy --metdet-config /opt/meteormesh/MetDetPy/config/m3det_normal.json --max-jobs 500 --max-runtime-hours 12 --detector-timeout-seconds 1800 --min-free-gb 100 --phase analyze
+TimeoutStartSec=13h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

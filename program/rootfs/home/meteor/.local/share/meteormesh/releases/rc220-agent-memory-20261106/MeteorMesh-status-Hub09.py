@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+"""Read-only status check for MeteorMesh HP G62 (MeteorHub 0.9).
+
+Reads the existing SSD/HDD mount, disk availability, kernel memory counters,
+systemd user-timer state, optional MeteorHub SQLite queue and latest morning
+report. Does not run a detector, contact phones, create/modify data files,
+delete recordings, run SMART/disk-health tests, or enable any systemd unit.
+
+Only Python 3 standard library modules are required.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import pwd
+import sqlite3
+import subprocess
+import sys
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+
+DEFAULT_DATA_ROOT = Path("/srv/meteor-data")
+MORNING_TIMER = "meteormesh-morning.timer"
+EXPECTED_HDD_UUID = "444a8a6d-090a-456c-8a9d-d99665c32574"
+LIMIT_BYTES = 1024 * 1024  # Refuse unexpectedly large JSON reports.
+REPORT_SCOPE_LOOKBACK = 20
+
+
+def read_command(argv: list[str], timeout: float = 3) -> dict:
+    try:
+        completed = subprocess.run(argv, capture_output=True, text=True,
+                                   check=False, timeout=timeout)
+        return {"ok": completed.returncode == 0,
+                "text": completed.stdout.strip()[:1000]}
+    except (OSError, subprocess.TimeoutExpired):
+        return {"ok": False, "text": ""}
+
+
+def parse_properties(command: dict) -> dict[str, str]:
+    return dict(line.split("=", 1) for line in command["text"].splitlines()
+                if "=" in line)
+
+
+def storage_details(path: Path, *, require_mount: bool) -> dict:
+    info: dict = {"path": str(path), "exists": False, "is_mount": False,
+                  "free_gib": None, "total_gib": None}
+    if path.is_symlink() or not path.is_dir():
+        info["reason"] = "MISSING_OR_SYMLINK"
+        return info
+    info["exists"] = True
+    info["is_mount"] = os.path.ismount(path)
+    if require_mount and not info["is_mount"]:
+        info["reason"] = "NOT_MOUNTED_NO_FALLBACK_TO_SSD"
+        return info
+    try:
+        stat = os.statvfs(path)
+    except OSError:
+        info["reason"] = "STATVFS_FAILED"
+        return info
+    info["free_gib"] = round(stat.f_bavail * stat.f_frsize / 1024**3, 2)
+    info["total_gib"] = round(stat.f_blocks * stat.f_frsize / 1024**3, 2)
+    return info
+
+
+def memory_details() -> dict:
+    values: dict[str, int] = {}
+    try:
+        with Path("/proc/meminfo").open(encoding="utf-8") as source:
+            for line in source:
+                name, sep, remainder = line.partition(":")
+                if sep and name in {"MemTotal", "MemAvailable", "SwapTotal", "SwapFree"}:
+                    values[name] = int(remainder.strip().split()[0])
+    except (OSError, ValueError, IndexError):
+        return {"available_gib": None, "swap_used_gib": None}
+    total_swap = values.get("SwapTotal", 0)
+    return {"available_gib": round(values.get("MemAvailable", 0) / 1024**2, 2),
+            "swap_used_gib": round((total_swap - values.get("SwapFree", total_swap)) / 1024**2, 2)}
+
+
+def sqlite_details(root: Path) -> dict:
+    db_path = root / "meteorhub.sqlite3"
+    result: dict = {"state": "NOT_CREATED", "ingest": {}, "jobs": {},
+                    "detector_runs": 0}
+    if db_path.is_symlink():
+        result["state"] = "UNSAFE_SYMLINK"
+        return result
+    if not db_path.is_file():
+        return result
+    try:
+        # URI mode=ro never creates a missing database; query_only prevents SQL writes.
+        with sqlite3.connect(db_path.resolve(strict=True).as_uri() + "?mode=ro",
+                             uri=True, timeout=2) as db:
+            db.execute("PRAGMA query_only=ON")
+            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if "segments" in tables:
+                result["ingest"] = dict(db.execute(
+                    "SELECT state, COUNT(*) FROM segments GROUP BY state"))
+            if "jobs" in tables:
+                result["jobs"] = dict(db.execute(
+                    "SELECT state, COUNT(*) FROM jobs GROUP BY state"))
+            if "detector_runs" in tables:
+                result["detector_runs"] = db.execute(
+                    "SELECT COUNT(*) FROM detector_runs").fetchone()[0]
+        result["state"] = "READ_ONLY_OK"
+    except (sqlite3.Error, OSError, ValueError):
+        result["state"] = "READ_ERROR"
+    return result
+
+
+def expected_night_id(now_tr: dt.datetime | None = None) -> str:
+    now_tr = now_tr or dt.datetime.now(ZoneInfo("Europe/Istanbul"))
+    if now_tr.tzinfo is None:
+        raise ValueError("now_tr must be timezone-aware")
+    start_day = now_tr.date() if now_tr.hour >= 19 else now_tr.date() - dt.timedelta(days=1)
+    return start_day.strftime("%Y%m%d-night")
+
+
+def _queue_counts(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    return {state: count for state, count in value.items()
+            if state in {"WAITING", "PENDING", "RUNNING", "SUCCEEDED", "FAILED"}
+            and type(count) is int and count >= 0}
+
+
+def _read_report(path: Path) -> dict | None:
+    if not path.is_file() or path.is_symlink() or path.stat().st_size > LIMIT_BYTES:
+        return None
+    with path.open(encoding="utf-8") as stream:
+        report = json.load(stream)
+    return report if isinstance(report, dict) else None
+
+
+def _current_night_missing(missing: object) -> int | None:
+    """Never classify a cross-night total as missing from the current night."""
+    if not isinstance(missing, dict) or type(missing.get('total')) is not int or missing['total'] < 0:
+        return None
+    groups = missing.get('by_scope_and_device')
+    if not isinstance(groups, dict):
+        return 0 if missing['total'] == 0 else None
+    counts = {}
+    for scope, devices in groups.items():
+        if not isinstance(scope, str) or not isinstance(devices, dict):
+            return None
+        if any(not isinstance(device, str) or type(count) is not int or count < 0
+               for device, count in devices.items()):
+            return None
+        counts[scope] = sum(devices.values())
+    if sum(counts.values()) != missing['total']:
+        return None
+    return counts.get('night', 0)
+
+
+def morning_details(root: Path, *, current_night_id: str | None = None) -> dict:
+    folder = root / "morning-reports"
+    result = {"state": "NO_REPORT_YET", "outcome": None, "error_count": None}
+    if folder.is_symlink():
+        return {**result, "state": "UNSAFE_SYMLINK"}
+    if not folder.is_dir():
+        return result
+    try:
+        matches = sorted(x for x in folder.glob("morning_*.json")
+                         if x.is_file() and not x.is_symlink())
+        if not matches:
+            return result
+        latest = matches[-1]
+        report = _read_report(latest)
+        if report is None:
+            return {**result, "state": "INVALID_REPORT"}
+        errors = report.get("errors")
+        night_id = report.get("night_id") if isinstance(report.get("night_id"), str) else None
+        source_missing = _current_night_missing(report.get("waiting_missing_source"))
+        expected = current_night_id or expected_night_id()
+        return {
+            "state": "READ_OK", "outcome": report.get("outcome"),
+            "error_count": len(errors) if isinstance(errors, list) else None,
+            "finished_utc": report.get("finished_utc"),
+            "report_name": latest.name,
+            "night_id": night_id,
+            "expected_night_id": expected,
+            "scope_is_current": night_id == expected,
+            "phase": report.get("phase"),
+            "night_queue": _queue_counts(report.get("night_queue")),
+            "carryover_queue": _queue_counts(report.get("carryover_queue")),
+            "historical_queue_excluded_from_night_status":
+                report.get("historical_queue_excluded_from_night_status") is True,
+            "waiting_source_missing": source_missing,
+            "waiting_source_missing_known": source_missing is not None,
+        }
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {**result, "state": "READ_ERROR"}
+
+
+def analysis_scope_details(db: dict, reports: dict) -> dict:
+    global_jobs = _queue_counts(db.get("jobs"))
+    trusted = (
+        reports.get("state") == "READ_OK"
+        and reports.get("scope_is_current") is True
+        and reports.get("historical_queue_excluded_from_night_status") is True
+        and bool(reports.get("night_queue"))
+    )
+    if trusted:
+        current = _queue_counts(reports.get("night_queue"))
+        historical = _queue_counts(reports.get("carryover_queue"))
+        source_missing = reports.get("waiting_source_missing")
+        source_missing = source_missing if type(source_missing) is int and source_missing >= 0 else None
+        return {
+            "trusted_current_night": True,
+            "scope_source": "LAST_MORNING_NIGHT_SCOPE",
+            "night_id": reports.get("night_id"),
+            "current_night_queue": current,
+            "current_night_failed": current.get("FAILED", 0),
+            "current_night_waiting": current.get("WAITING", 0) + current.get("PENDING", 0),
+            "current_night_running": current.get("RUNNING", 0),
+            "waiting_source_missing": source_missing,
+            "waiting_source_missing_known": source_missing is not None,
+            "waiting_actionable_estimate": (max(
+                0, current.get("WAITING", 0) + current.get("PENDING", 0) - source_missing)
+                if source_missing is not None else None),
+            "historical_queue": historical,
+            "historical_failed_review_only": historical.get("FAILED", 0),
+            "global_queue_observed": global_jobs,
+        }
+    return {
+        "trusted_current_night": False,
+        "scope_source": "GLOBAL_DB_FALLBACK_SCOPE_UNKNOWN",
+        "night_id": reports.get("night_id"),
+        "current_night_queue": {},
+        "current_night_failed": None,
+        "current_night_waiting": None,
+        "current_night_running": None,
+        "waiting_source_missing": 0,
+        "waiting_actionable_estimate": None,
+        "historical_queue": {},
+        "historical_failed_review_only": None,
+        "global_queue_observed": global_jobs,
+    }
+
+
+def collect(data_root: Path = DEFAULT_DATA_ROOT, *, min_hdd_free_gib: float = 20) -> dict:
+    hdd = storage_details(data_root, require_mount=True)
+    if hdd["is_mount"]:
+        mount_reply = read_command(["findmnt", "-M", str(data_root), "-n",
+                                    "-o", "SOURCE,FSTYPE,UUID"])
+        mount_fields = mount_reply["text"].split()
+        if mount_reply["ok"] and len(mount_fields) == 3:
+            hdd.update({"source": mount_fields[0], "fstype": mount_fields[1],
+                        "uuid": mount_fields[2]})
+        else:
+            hdd["mount_verification"] = "UNKNOWN"
+    ssd = storage_details(Path("/"), require_mount=False)
+    db = sqlite_details(data_root) if hdd["is_mount"] else {"state": "HDD_NOT_MOUNTED"}
+    reports = morning_details(data_root) if hdd["is_mount"] else {"state": "HDD_NOT_MOUNTED"}
+    analysis_scope = analysis_scope_details(db, reports)
+    timer_cmd = read_command(["systemctl", "--user", "show", MORNING_TIMER,
+                              "-p", "LoadState", "-p", "ActiveState", "-p", "UnitFileState"])
+    timer = parse_properties(timer_cmd)
+    user = pwd.getpwuid(os.getuid()).pw_name
+    linger = parse_properties(read_command(["loginctl", "show-user", user, "-p", "Linger"]))
+    ntp = parse_properties(read_command(["timedatectl", "show", "-p", "NTPSynchronized"]))
+    issues: list[dict[str, str]] = []
+    if not hdd["is_mount"] or hdd["free_gib"] is None:
+        issues.append({"level": "CRITICAL", "code": "HDD_NOT_MOUNTED"})
+    else:
+        if hdd.get("fstype") and hdd["fstype"] != "ext4":
+            issues.append({"level": "CRITICAL", "code": "HDD_UNEXPECTED_FILESYSTEM"})
+        if hdd.get("uuid") and data_root == DEFAULT_DATA_ROOT and hdd["uuid"] != EXPECTED_HDD_UUID:
+            issues.append({"level": "CRITICAL", "code": "HDD_UNEXPECTED_UUID"})
+        if hdd.get("mount_verification") == "UNKNOWN":
+            issues.append({"level": "WARNING", "code": "HDD_MOUNT_SOURCE_UNVERIFIED"})
+        if hdd["free_gib"] < 5:
+            issues.append({"level": "CRITICAL", "code": "HDD_FREE_UNDER_5_GIB"})
+        elif hdd["free_gib"] < min_hdd_free_gib:
+            issues.append({"level": "WARNING", "code": "HDD_FREE_LOW"})
+    if ssd["free_gib"] is not None and ssd["free_gib"] < 5:
+        issues.append({"level": "WARNING", "code": "SSD_FREE_UNDER_5_GIB"})
+    if db["state"] not in {"NOT_CREATED", "READ_ONLY_OK", "HDD_NOT_MOUNTED"}:
+        issues.append({"level": "WARNING", "code": "DATABASE_" + db["state"]})
+    if analysis_scope["trusted_current_night"]:
+        if analysis_scope["current_night_failed"]:
+            issues.append({"level": "WARNING", "code": "DETECTOR_CURRENT_NIGHT_FAILED_JOBS"})
+        if analysis_scope["waiting_source_missing"]:
+            issues.append({"level": "WARNING", "code": "DETECTOR_WAITING_SOURCE_MISSING"})
+        elif not analysis_scope.get("waiting_source_missing_known", False):
+            issues.append({"level": "WARNING", "code": "DETECTOR_SOURCE_MISSING_SCOPE_UNKNOWN"})
+    elif db.get("jobs", {}).get("FAILED", 0):
+        issues.append({"level": "WARNING", "code": "DETECTOR_FAILED_JOBS_SCOPE_UNKNOWN"})
+    if reports["state"] not in {"NO_REPORT_YET", "READ_OK", "HDD_NOT_MOUNTED"}:
+        issues.append({"level": "WARNING", "code": "MORNING_" + reports["state"]})
+    if reports.get("outcome") == "PARTIAL_REVIEW_REQUIRED":
+        issues.append({"level": "WARNING", "code": "LAST_MORNING_PARTIAL"})
+    if timer.get("UnitFileState") in {"enabled", "enabled-runtime"} and not db.get("ingest", {}).get("INGEST_VERIFIED", 0):
+        issues.append({"level": "WARNING", "code": "MORNING_TIMER_ENABLED_BEFORE_FIRST_VERIFIED_VIDEO"})
+    if linger.get("Linger") == "no":
+        issues.append({"level": "WARNING", "code": "USER_LINGER_DISABLED"})
+    if ntp.get("NTPSynchronized") == "no":
+        issues.append({"level": "WARNING", "code": "CLOCK_NOT_SYNCHRONIZED"})
+    status = "CRITICAL" if any(x["level"] == "CRITICAL" for x in issues) else (
+        "WARNING" if issues else "SETUP_WAITING_FOR_PHONES" if db["state"] == "NOT_CREATED"
+        else "OK")
+    return {
+        "schema": "meteormesh.local-status.v1",
+        "checked_tr": dt.datetime.now(ZoneInfo("Europe/Istanbul")).isoformat(timespec="seconds"),
+        "status": status,
+        "ssd_root": ssd,
+        "hdd": hdd,
+        "memory": memory_details(),
+        "linger": linger.get("Linger", "UNKNOWN"),
+        "ntp_synchronized": ntp.get("NTPSynchronized", "UNKNOWN"),
+        "morning_timer": {"load": timer.get("LoadState", "UNKNOWN"),
+                          "active": timer.get("ActiveState", "UNKNOWN"),
+                          "enabled": timer.get("UnitFileState", "UNKNOWN")},
+        "database": db,
+        "last_morning": reports,
+        "analysis_scope": analysis_scope,
+        "issues": issues,
+        "read_only": True,
+        "runs_detector": False,
+        "can_delete": False,
+        "smart_disk_health_checked": False,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_ROOT)
+    parser.add_argument("--min-hdd-free-gib", type=float, default=20.0)
+    parser.add_argument("--strict", action="store_true", help="Exit nonzero on issues")
+    args = parser.parse_args()
+    if not 0 <= args.min_hdd_free_gib <= 1000:
+        parser.error("Invalid free-space threshold")
+    report = collect(args.data_dir, min_hdd_free_gib=args.min_hdd_free_gib)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    if args.strict:
+        return 2 if report["status"] == "CRITICAL" else 1 if report["status"] == "WARNING" else 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

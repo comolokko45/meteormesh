@@ -1,0 +1,11 @@
+MeteorMesh RC168 — Control heartbeat unknown-state fix
+Date: 2026-11-04 UTC
+Root cause: after Control-013 restart, missing rows were rewritten as NEVER_SEEN and prior last_success was lost; alert logic treated disappearance from STALE as recovery without fresh ONLINE evidence.
+Fix: preserve last_success/outage history; report UNKNOWN/STALE explicitly; close an incident only after fresh ONLINE within TTL with last_success_utc.
+Targeted validation: py_compile PASS; ops-summary --self-test PASS; ops-local-alerts --self-test PASS; heartbeat-watch --self-test PASS; real preview showed three CONTROL_HEARTBEAT_UNKNOWN events and zero recoveries.
+Deployment: existing scripts only; no new service/timer/database/dependency. Phone APIs, MP4, SQLite, HDD data untouched.
+Rollback: atomically replace each production script from its matching *.pre-rc168.py in this directory using a sibling temp file and os.replace; then verify original production hashes recorded below.
+
+meteor-ops-summary.py: previous=d65329e54b8d15dcdc910f42af832143af9b400995ed47bc8bcdc4a64edca898 candidate=356dea081576ec8041c08102067262a22368da82e704b2c212f4edc346eb9304
+meteor-ops-local-alerts.py: previous=17801bf063745f01788e383a7ded59e17c263a85802ba6e51802058909d0c8c1 candidate=95f6e1c350db3904d4a454e5b36fa09e2e4486071d6a7c80b220c4d573f49f5c
+meteor-heartbeat-watch.py: previous=d70e281e3b8b7005cc04676bef40511d9d6768654fbaa295e73e183f3e828a0a candidate=ba4db589da74f19141f7abb20e6b618fc11261f022e2fe459c652c3fb1e04f05

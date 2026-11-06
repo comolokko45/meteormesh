@@ -1,0 +1,366 @@
+--- a/MeteorHub/meteor_morning.py
++++ b/MeteorHub/meteor_morning.py
+@@ -135,10 +135,13 @@
+                 min_free_bytes: int = 2 * 1024**3,
+                 clock=time.monotonic, max_segments_per_device: int | None = None,
+                 night_scope_path: Path | None = None,
+-                phase: str = "both") -> dict:
++                phase: str = "both", only_job_id: int | None = None) -> dict:
+     """Make progress despite one offline phone, but fail closed on corrupt sources."""
+     if phase not in ("both", "sync", "analyze"):
+         raise ValueError("Invalid phase")
++    if only_job_id is not None:
++        if type(only_job_id) is not int or only_job_id < 1 or phase != "analyze":
++            raise ValueError("--only-job-id requires a positive job ID and --phase analyze")
+     scope = load_night_scope(night_scope_path) if night_scope_path is not None else None
+     _mm01_verify(data_root)
+     if max_segments_per_device is not None and not 1 <= max_segments_per_device <= 100:
+@@ -152,6 +155,14 @@
+     devices = read_device_config(config)
+     if not devices:
+         raise ValueError("At least one enabled device is required")
++    configured_device_ids = {d["id"] for d in devices}
++    required_scope_device_ids = set(scope.excluded) if scope is not None else set()
++    scope_device_config_match = (
++        scope is None or configured_device_ids == required_scope_device_ids
++    )
++    scope_device_config_mismatch = (
++        scope is not None and phase != "sync" and not scope_device_config_match
++    )
+     if not shutil.which("ffprobe"):
+         raise RuntimeError("ffprobe required: never claim ingest verified without media check")
+     validate_root(data_root)
+@@ -184,37 +195,110 @@
+         "llm_required": False,
+         "max_segments_per_device": max_segments_per_device,
+         "phase": phase,
++        "configured_device_ids": sorted(configured_device_ids),
++        "required_scope_device_ids": sorted(required_scope_device_ids),
++        "night_scope_device_config_match": scope_device_config_match,
++        "night_scope_device_coverage": {},
++        "night_scope_missing_devices": [],
++        "carryover_review_required": False,
+     }
+ 
+     with exclusive_run_lock(data_root):
+         with database_for(data_root, initialize=True) as db:
+             if phase != "analyze":
+-                for device in devices:
+-                    if clock() >= deadline:
+-                        report["errors"].append("Runtime budget exhausted before all phones")
+-                        report["devices"].append({"id": device["id"], "state": "SKIPPED_TIME_BUDGET"})
+-                        continue
+-                    try:
+-                        process_options = ({'max_segments': max_segments_per_device}
+-                                           if max_segments_per_device is not None else {})
+-                        good, pending = process_device(
+-                            device, data_root, db, False, min_free_bytes=min_free_bytes,
+-                            should_stop=lambda: clock() >= deadline, scope=scope, **process_options,
+-                        )
+-                        report["sync_good"] += good
+-                        report["sync_pending_or_failed"] += pending
+-                        state = "INCOMPLETE" if pending else (
+-                            "NO_READY_SEGMENTS" if good == 0 else "OK")
+-                        report["devices"].append({"id": device["id"], "state": state, "verified": good,
+-                            "pending_or_failed": pending})
+-                        if pending:
+-                            report["errors"].append(f"{device['id']}: {pending} ingest attempts incomplete")
+-                        elif good == 0:
+-                            report["errors"].append(
+-                                f"{device['id']}: no READY segments; earlier nights in SQLite do not prove capture")
+-                    except Exception as exc:
+-                        report["devices"].append({"id": device["id"], "state": "OFFLINE_OR_ERROR"})
+-                        report["errors"].append(f"{device['id']}: {type(exc).__name__}: {exc}")
++                import os as _fair_os
++                _fair_batch = int(_fair_os.environ.get('METEORMESH_FAIR_SYNC_ROUND_SIZE', '0'))
++                if not 0 <= _fair_batch <= 100:
++                    raise RuntimeError('FAIR_SYNC_BATCH_OUT_OF_RANGE')
++                if phase == 'sync' and _fair_batch:
++                    print(f'FAIR_SYNC: ENABLED round_size={_fair_batch}')
++                    _fair_seen = {d['id']: set() for d in devices}
++                    _fair_stats = {d['id']: {'good': 0, 'pending': 0, 'attempted': 0,
++                                            'error': None} for d in devices}
++                    _fair_active = list(devices)
++                    _fair_round = 0
++                    while _fair_active and clock() < deadline and _fair_round < 1000:
++                        _fair_round += 1
++                        _fair_again = []
++                        for device in _fair_active:
++                            if clock() >= deadline:
++                                break
++                            _fair_id = device['id']
++                            _fair_before = len(_fair_seen[_fair_id])
++                            try:
++                                good, pending = process_device(
++                                    device, data_root, db, False,
++                                    min_free_bytes=min_free_bytes,
++                                    should_stop=lambda: clock() >= deadline,
++                                    scope=scope, max_segments=_fair_batch,
++                                    skip_ids=_fair_seen[_fair_id], count_deferred=False,
++                                )
++                                _fair_stats[_fair_id]['good'] += good
++                                _fair_stats[_fair_id]['pending'] += pending
++                                report['sync_good'] += good
++                                report['sync_pending_or_failed'] += pending
++                                _fair_attempted = len(_fair_seen[_fair_id]) - _fair_before
++                                _fair_stats[_fair_id]['attempted'] += _fair_attempted
++                                if _fair_attempted == _fair_batch:
++                                    _fair_again.append(device)
++                            except Exception as ex:
++                                _fair_stats[_fair_id]['error'] = f'{type(ex).__name__}: {ex}'
++                        if not _fair_again:
++                            break
++                        _fair_active = _fair_again
++                    if clock() >= deadline and _fair_active:
++                        report['errors'].append('Runtime budget exhausted during fair rotation')
++                    if _fair_round >= 1000:
++                        report['errors'].append('FAIR_SYNC_MAX_ROUNDS')
++                    for device in devices:
++                        _fair_id = device['id']
++                        _fair_stat = _fair_stats[_fair_id]
++                        if _fair_stat['error']:
++                            _fair_state = 'OFFLINE_OR_ERROR'
++                            report['errors'].append(f"{_fair_id}: {_fair_stat['error']}")
++                        elif _fair_stat['attempted'] == 0:
++                            _fair_state = ('SKIPPED_TIME_BUDGET' if clock() >= deadline
++                                           else 'NO_READY_SEGMENTS')
++                            if _fair_state == 'NO_READY_SEGMENTS':
++                                report['errors'].append(f'{_fair_id}: no READY segments in scope')
++                        elif _fair_stat['pending']:
++                            _fair_state = 'INCOMPLETE'
++                            report['errors'].append(
++                                f"{_fair_id}: {_fair_stat['pending']} ingest attempts incomplete")
++                        else:
++                            _fair_state = 'OK'
++                        report['devices'].append({
++                            'id': _fair_id, 'state': _fair_state,
++                            'verified': _fair_stat['good'],
++                            'pending_or_failed': _fair_stat['pending'],
++                        })
++                else:
++                    for device in devices:
++                        if clock() >= deadline:
++                            report["errors"].append("Runtime budget exhausted before all phones")
++                            report["devices"].append({"id": device["id"], "state": "SKIPPED_TIME_BUDGET"})
++                            continue
++                        try:
++                            process_options = ({'max_segments': max_segments_per_device}
++                                               if max_segments_per_device is not None else {})
++                            good, pending = process_device(
++                                device, data_root, db, False, min_free_bytes=min_free_bytes,
++                                should_stop=lambda: clock() >= deadline, scope=scope, **process_options,
++                            )
++                            report["sync_good"] += good
++                            report["sync_pending_or_failed"] += pending
++                            state = "INCOMPLETE" if pending else (
++                                "NO_READY_SEGMENTS" if good == 0 else "OK")
++                            report["devices"].append({"id": device["id"], "state": state, "verified": good,
++                                "pending_or_failed": pending})
++                            if pending:
++                                report["errors"].append(f"{device['id']}: {pending} ingest attempts incomplete")
++                            elif good == 0:
++                                report["errors"].append(
++                                    f"{device['id']}: no READY segments; earlier nights in SQLite do not prove capture")
++                        except Exception as exc:
++                            report["devices"].append({"id": device["id"], "state": "OFFLINE_OR_ERROR"})
++                            report["errors"].append(f"{device['id']}: {type(exc).__name__}: {exc}")
+ 
+             detector_ready = False
+             if clock() < deadline:
+@@ -230,19 +314,12 @@
+                     report["errors"].append(f"detector preflight: {type(exc).__name__}: {exc}")
+ 
+             if detector_ready and phase != "sync":
+-                if scope is not None:
+-                    from recover_policy import recover
+-                    recovery = recover(db, scope=scope)
+-                    report["stale_jobs_reclaimed"] = recovery["stale_requeued"]
+-                    report["failed_jobs_retried"] = recovery["failed_requeued"]
+-                    report["stale_jobs_exhausted"] = recovery["stale_exhausted"]
+-                else:
+-                    report["stale_jobs_reclaimed"] = reclaim_stale(db, scope=scope)
++                report["stale_jobs_reclaimed"] = reclaim_stale(db, scope=scope)
+                 for _ in range(max_jobs):
+                     remaining = int(deadline - clock())
+                     if remaining < 60:
+                         break
+-                    job = claim_next(db, scope=scope)
++                    job = claim_next(db, scope=scope, job_id=only_job_id)
+                     if job is None:
+                         break
+                     is_carryover = bool(scope and not scope.allows(
+@@ -264,6 +341,38 @@
+             report["briefing"] = answer(db, "briefing")
+             # Diagnostics only: includes previous nights and never grants purge.
+             report["health_inventory"] = summarize_health(db, [d["id"] for d in devices])
++            # A scoped analysis must cover every camera required by the armed
++            # night policy, even when phase=analyze skips the phone sync loop.
++            night_scope_device_coverage = {}
++            night_scope_missing_devices = []
++            if scope is not None:
++                night_scope_device_coverage = {
++                    device: 0 for device in sorted(required_scope_device_ids)
++                }
++                for dev, segment_id, digest in db.execute(
++                        "SELECT device_id, segment_id, sha256 FROM segments "
++                        "WHERE state='INGEST_VERIFIED'"):
++                    if dev in night_scope_device_coverage and scope.allows(dev, segment_id, digest):
++                        night_scope_device_coverage[dev] += 1
++                night_scope_missing_devices = [
++                    device for device, count in night_scope_device_coverage.items() if count == 0
++                ]
++                report["night_scope_device_coverage"] = night_scope_device_coverage
++                report["night_scope_missing_devices"] = night_scope_missing_devices
++                if phase != "sync" and scope_device_config_mismatch:
++                    report["errors"].append(
++                        "Configured device IDs do not match required night-scope devices"
++                    )
++                if phase != "sync" and night_scope_missing_devices:
++                    report["errors"].append(
++                        "No INGEST_VERIFIED segment for required night device(s): "
++                        + ",".join(night_scope_missing_devices)
++                    )
++            scope_gate_ok = (
++                scope is None or (
++                    scope_device_config_match and not night_scope_missing_devices
++                )
++            )
+             # Online phones with zero READY recordings are not evidence that
+             # a night was captured and analyzed successfully.
+             verified_total = report["queue"]["ingest_states"].get("INGEST_VERIFIED", 0)
+@@ -289,18 +398,20 @@
+                 report["errors"].append("No verified video segments; capture not proven")
+             all_devices_ok = all(item.get("state") == "OK" for item in report["devices"])
+             jobs = scoped_jobs if scope is not None else report["queue"]["jobs"]
++            all_jobs_terminal_success = all(jobs.get(k, 0) == 0 for k in ("WAITING", "RUNNING", "FAILED"))
++            carryover_review_required = False
+             if scope is not None:
+-                from night_operational_gate import assess
+-                night = assess(db, scope, [d["id"] for d in devices])
+-                report["current_night_operational_gate"] = night
+-                report["historical_carryover_unresolved"] = sum(
+-                    carryover_jobs[k] for k in ("WAITING", "RUNNING", "FAILED"))
+-                if report["historical_carryover_unresolved"]:
+-                    report.setdefault("historical_warnings", []).append("Old jobs kept for separate review")
+-                all_jobs_terminal_success = night["analysis_rows_complete"]
+-            else:
+-                all_jobs_terminal_success = all(jobs.get(k, 0) == 0 for k in ("WAITING", "RUNNING", "FAILED"))
+-            if phase != "sync" and verified_total and all_devices_ok and all_jobs_terminal_success and detector_ready:
++                # Keep older jobs visible, but do not let terminal carryover
++                # failures hold the current night in ANALYSIS_PENDING forever.
++                carryover_review_required = any(
++                    carryover_jobs[k] for k in ("WAITING", "RUNNING", "FAILED")
++                )
++                report["carryover_review_required"] = carryover_review_required
++                if carryover_review_required:
++                    report.setdefault("historical_warnings", []).append(
++                        "Allowed carryover jobs require separate review"
++                    )
++            if phase != "sync" and verified_total and all_devices_ok and scope_gate_ok and all_jobs_terminal_success and detector_ready:
+                 try:
+                     events = build_event_report(db, data_root, [d["id"] for d in devices], scope=scope)
+                     event_name = "events_provisional_" + run_id + ".json"
+@@ -318,15 +429,21 @@
+         if phase == "sync":
+             report["outcome"] = "PARTIAL_REVIEW_REQUIRED" if report["errors"] else "INGEST_QUEUED"
+         elif phase == "analyze":
+-            if scope is not None:
+-                pending = not report["current_night_operational_gate"]["analysis_rows_complete"]
++            scoped = report.get("night_queue") or report["queue"]["jobs"]
++            pending = any(scoped.get(k, 0) for k in ("WAITING", "RUNNING", "FAILED"))
++            if report["errors"] or pending:
++                report["outcome"] = "ANALYSIS_PENDING"
++            elif report.get("carryover_review_required"):
++                report["outcome"] = "ANALYSIS_COMPLETE_CARRYOVER_REVIEW_REQUIRED"
+             else:
+-                q = report["queue"]["jobs"]
+-                pending = any(q.get(k,0) for k in ("WAITING", "RUNNING", "FAILED"))
+-            report["outcome"] = "ANALYSIS_PENDING" if (report["errors"] or pending) else "ANALYSIS_COMPLETE_PROVISIONAL"
++                report["outcome"] = "ANALYSIS_COMPLETE_PROVISIONAL"
+         else:
+-            report["outcome"] = "PARTIAL_REVIEW_REQUIRED" if (
+-                report["errors"] or report.get("provisional_events_skipped")) else "COMPLETED_PROVISIONAL"
++            if report["errors"] or report.get("provisional_events_skipped"):
++                report["outcome"] = "PARTIAL_REVIEW_REQUIRED"
++            elif report.get("carryover_review_required"):
++                report["outcome"] = "COMPLETED_CARRYOVER_REVIEW_REQUIRED"
++            else:
++                report["outcome"] = "COMPLETED_PROVISIONAL"
+         report["run_report"] = str(_mm01_persistent_path(reports_folder(data_root) / ("morning_" + run_id + ".json")))
+         write_new_report(reports_folder(data_root), "morning_" + run_id + ".json", report)
+     return report
+@@ -358,6 +475,8 @@
+             p.add_argument("--night-scope", type=Path, default=None, help="Restrict ingest and queue to explicit night policy")
+             p.add_argument("--phase", choices=("both", "sync", "analyze"), default="both")
+             p.add_argument("--max-jobs", type=int, default=288)
++            p.add_argument("--only-job-id", type=int, default=None,
++                           help="Analyze exactly this WAITING in-scope job; never select carryover")
+             p.add_argument("--max-segments-per-device", type=int, default=None,
+                            help="Controlled trial: cap ingest and prefer an existing .part")
+             p.add_argument("--max-runtime-hours", type=float, default=12.0)
+@@ -381,6 +500,7 @@
+             result = run_morning(config=args.config, data_root=args.data_dir,
+                                  detector_repo=args.metdet_repo, detector_config=args.metdet_config,
+                                  max_jobs=args.max_jobs,
++                                 only_job_id=args.only_job_id,
+                                  max_runtime_seconds=int(args.max_runtime_hours * 3600),
+                                  detector_timeout_seconds=args.detector_timeout_seconds,
+                                  min_free_bytes=int(args.min_free_gb * 1024**3),
+--- a/MeteorHub/hub_workflow.py
++++ b/MeteorHub/hub_workflow.py
+@@ -117,16 +117,26 @@
+     return cursor.rowcount
+ 
+ 
+-def claim_next(db: sqlite3.Connection, now: float | None = None, *, scope=None) -> dict | None:
++def claim_next(db: sqlite3.Connection, now: float | None = None, *, scope=None,
++               job_id: int | None = None) -> dict | None:
+     now = time.time() if now is None else now
+     db.execute("BEGIN IMMEDIATE")
+     try:
+-        rows = db.execute("""SELECT id, device_id, segment_id, video_sha256,
+-            detector_config_sha256 FROM jobs WHERE state='WAITING'
+-            ORDER BY id""").fetchall() if scope is not None else []
+-        row = next((r for r in rows if scope.allows_queue(r[1], r[2], r[3])), None) if scope is not None else db.execute("""SELECT id, device_id, segment_id, video_sha256,
+-            detector_config_sha256 FROM jobs WHERE state='WAITING'
+-            ORDER BY id LIMIT 1""").fetchone()
++        if job_id is not None:
++            row = db.execute("""SELECT id, device_id, segment_id, video_sha256,
++                detector_config_sha256 FROM jobs WHERE id=? AND state='WAITING'""",
++                (job_id,)).fetchone()
++            # Exact diagnostic selection must be in the current night itself;
++            # never fall back to the broader historical carryover allowance.
++            if row is not None and scope is not None and not scope.allows(row[1], row[2], row[3]):
++                row = None
++        else:
++            rows = db.execute("""SELECT id, device_id, segment_id, video_sha256,
++                detector_config_sha256 FROM jobs WHERE state='WAITING'
++                ORDER BY id""").fetchall() if scope is not None else []
++            row = next((r for r in rows if scope.allows_queue(r[1], r[2], r[3])), None) if scope is not None else db.execute("""SELECT id, device_id, segment_id, video_sha256,
++                detector_config_sha256 FROM jobs WHERE state='WAITING'
++                ORDER BY id LIMIT 1""").fetchone()
+         if row is None:
+             db.commit()
+             return None
+--- a/MeteorHub/MERGE-RELEASE-NOTES.md
++++ b/MeteorHub/MERGE-RELEASE-NOTES.md
+@@ -13,3 +13,19 @@
+ Production gate: canonical MM-01 HP staging pass, review, rollback, manual single-video acceptance, and separate permission before systemd timer activation. The installed Hub 0.9 is not modified by this package.
+ 
+ HTTP lab mode is authenticated by an insecure shared test token and lacks transport encryption: trusted isolated LAN only; NEVER publicly port-forward. Production requires a secure transport/credential upgrade.
++
++
++## 2026-11-02 staging correction — Night-scope acceptance gate correction
++
++- A scoped analysis now requires the configured device IDs to match the armed night scope IDs; a mismatch keeps the run pending and suppresses provisional event output.
++- The report records verified segment coverage for every required camera and keeps the run pending if any required camera has no in-scope INGEST_VERIFIED segment.
++- Current-night queue completion is evaluated separately from older carryover. Carryover remains visible with an explicit review flag and outcome; exhausted historical failures do not hold a complete current night in ANALYSIS_PENDING.
++- Staging RC157 only. The active RC156 release/service and stored media were not modified; no tests were run as part of this correction.
++
++## 2026-11-03 staging update — RC157 delivery scope
++
++- `--only-job-id` is a diagnostic selector for one positive WAITING job and requires `phase=analyze`. When a night scope is supplied, the selected job must pass that exact scope; selection does not fall back to older carryover jobs.
++- Scoped analysis acceptance checks that configured camera IDs match the armed night policy and that every required camera has at least one `INGEST_VERIFIED` segment in that night. Older queued work remains visible as a separate carryover review outcome.
++- `phase=sync` supports optional per-camera rounds through `METEORMESH_FAIR_SYNC_ROUND_SIZE` (1–100 clips per round); unset or zero keeps the sequential ingest path. This prevents one camera's backlog from consuming all sync work before the others are visited.
++- Analysis reclaims stale running jobs but does not automatically requeue exhausted `FAILED` jobs. Historical attempt limits remain intact.
++- RC157 is staging only. These changes do not activate timers or modify the RC156 production service; full-night operational acceptance is still pending.

@@ -1,0 +1,15 @@
+{
+  "schema": "meteormesh.local-status.v1",
+  "checked_tr": "2026-10-30T13:00:00+03:00",
+  "status": "CRITICAL",
+  "hdd": {"path": "/srv/meteor-data", "is_mount": false, "free_gib": null, "total_gib": null},
+  "database": {"state": "HDD_NOT_MOUNTED", "jobs": {}},
+  "last_morning": {"state": "HDD_NOT_MOUNTED"},
+  "morning_timer": {"enabled": "disabled", "active": "inactive"},
+  "memory": {"available_gib": 2.0},
+  "ntp_synchronized": "yes",
+  "issues": [{"level": "CRITICAL", "code": "HDD_NOT_MOUNTED"}],
+  "read_only": true,
+  "runs_detector": false,
+  "can_delete": false
+}

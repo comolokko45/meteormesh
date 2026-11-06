@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MeteorMesh safe morning workflow
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+AccuracySec=5min
+Unit=meteormesh-morning.service
+
+[Install]
+WantedBy=timers.target

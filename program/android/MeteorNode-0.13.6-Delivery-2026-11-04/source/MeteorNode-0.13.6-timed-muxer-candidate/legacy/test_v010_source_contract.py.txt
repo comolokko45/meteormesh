@@ -1,0 +1,62 @@
+"""v0.10 regression contracts vs actual v0.9; not a substitute for device tests."""
+import hashlib
+import unittest
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+JAVA=ROOT/'app/src/main/java/org/meteormesh/node'
+PRESERVED={'MeteorCaptureService.kt': '2b3e706697a0c9a8959d91567b34e5c9a013a34fcb2723a4cdedd9b393f89f31', 'CameraInventory.kt': 'bc7690a6e54dd1ad44aefb13fae01b822b3235e474abb5ca7b4a9a1f5ce0e8f4', 'SegmentStore.kt': '7619099a184362f1875d43cd3d7a742a9b848a3f28c914560bb44f945f6c6f19', 'PublicVideoExporter.kt': '48828905c66e29af74bdcbd5a997fc5e789a4eebde4f954ef68f2a1168c0fd76', 'RemoteSettings.kt': '16e2a508f06cb6afa9f0b73aa7c6460fa1b3e21615ed0f3a8b141919d5df5ad4', 'MeteorLanService.kt': 'ed7b6a08cbee619052d8070c08a9699de3653062f67228a84d921487870ff1bf', 'PermissionStatus.kt': '1e9ddf944dc12139e9b6ac9da85c882476656009ec76d7da029125e2aea4aa5f'}
+class Contracts(unittest.TestCase):
+    def test_camera_recorder_and_storage_unchanged_bytewise(self):
+        for name,ref in PRESERVED.items():
+            self.assertEqual(hashlib.sha256((JAVA/name).read_bytes()).hexdigest(),ref,name)
+    def test_fixed_32_zeros_and_no_token_entry(self):
+        http=(JAVA/'LocalHttpServer.kt').read_text()
+        ui=(JAVA/'MainActivity.kt').read_text()
+        self.assertIn('const val FIXED_TEST_TOKEN = "'+'0'*32+'"',http)
+        self.assertIn('fun pairingToken(@Suppress("UNUSED_PARAMETER") context: Context): String = FIXED_TEST_TOKEN',http)
+        self.assertNotIn('SecureRandom',http)
+        self.assertNotIn('setPairingToken',http)
+        self.assertNotIn('EditText',ui)
+        self.assertNotIn('ORTAK LAN SIFRESINI KAYDET',ui)
+        self.assertNotIn('SIFRESINI KOPYALA',ui)
+        self.assertNotIn('00000000000000000000000000000000',ui)
+    def test_remote_api_and_auth_unchanged(self):
+        http=(JAVA/'LocalHttpServer.kt').read_text()
+        for endpoint in ('/api/v1/health','/api/v1/status','/api/v1/settings',
+            '/api/v1/control/start','/api/v1/control/stop','/api/v1/segments'):
+            self.assertIn(endpoint,http)
+        self.assertIn('MessageDigest.isEqual',http)
+        self.assertIn('RemoteSettings.enabled(context)',http)
+        self.assertNotIn('/api/v1/shell',http)
+        self.assertNotIn('/api/v1/delete',http)
+        self.assertNotIn('put("token"',http)
+        self.assertIn('0.10.0-compact-fixedkey-lan-test',http)
+    def test_single_screen_and_advanced_dialog(self):
+        ui=(JAVA/'MainActivity.kt').read_text()
+        for button in ('LAN + UZAKTAN KONTROLU HAZIRLA','KAYDI BASLAT','KAYDI DURDUR','DURUMU YENILE','IZINLER VE TEKNIK AYARLAR'):
+            self.assertIn(button,ui)
+        self.assertIn('ACTION_ARM',ui)
+        self.assertIn('ACTION_START',ui)
+        self.assertIn('ACTION_STOP',ui)
+        self.assertIn('Settings.ACTION_MANAGE_WRITE_SETTINGS',ui)
+        self.assertIn('Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS',ui)
+        self.assertIn('requestNeededPermissions()',ui)
+        self.assertIn('setEnabled(this, false)',ui)
+    def test_old_apks_isolated(self):
+        gradle=(ROOT/'app/build.gradle.kts').read_text()
+        self.assertIn('applicationId = "org.meteormesh.node.compactfixedtest"',gradle)
+        self.assertIn('versionCode = 10',gradle)
+        self.assertIn('versionName = "0.10.0-compact-fixedkey-lan-test"',gradle)
+        manifest=(ROOT/'app/src/main/AndroidManifest.xml').read_text()
+        self.assertIn('android:allowBackup="false"',manifest)
+        self.assertIn('android:exported="false"',manifest)
+    def test_linux_client_defaults_to_fixed_test_token(self):
+        for name in ('meteor_remote.py','meteornode_http_pull.py'):
+            s=(ROOT/'linux'/name).read_text()
+            self.assertIn('DEFAULT_TEST_KEY = "'+'0'*32+'"',s)
+            self.assertIn('os.environ.get(args.token_env) or DEFAULT_TEST_KEY',s)
+        http=(ROOT/'linux/meteornode_http_pull.py').read_text()
+        self.assertIn('hashlib.sha256',http)
+        self.assertIn('Pairing token is missing/too short',http)
+
+if __name__=='__main__':unittest.main()

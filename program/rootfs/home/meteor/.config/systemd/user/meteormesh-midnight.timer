@@ -1,0 +1,10 @@
+[Unit]
+Description=MeteorMesh daily 00:30 intermediate transfer
+
+[Timer]
+OnCalendar=*-*-* 00:30:00 Europe/Istanbul
+Persistent=false
+Unit=meteormesh-midnight.service
+
+[Install]
+WantedBy=timers.target

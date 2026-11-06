@@ -1,0 +1,11 @@
+[Unit]
+Description=MeteorMesh read-only status check every 30 minutes
+
+[Timer]
+OnCalendar=*:0/30
+Persistent=true
+AccuracySec=2min
+Unit=meteormesh-status.service
+
+[Install]
+WantedBy=timers.target

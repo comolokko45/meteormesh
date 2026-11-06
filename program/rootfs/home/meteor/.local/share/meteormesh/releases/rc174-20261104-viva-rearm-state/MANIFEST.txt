@@ -1,0 +1,5 @@
+RC174: retain Viva rearm alert and avoid repeat stop when camera readiness is false
+PREVIOUS c1b6cf715796aef7fe9734b56fed48b39fab300f1017662443863094c28b4308  meteor-capture-loop.py
+DEPLOYED 571baf6c361810bd56f2a27dec25a85196dc94b9cc4ff3158afe67b93e1bd77d  meteor-capture-loop.py
+PREVIOUS 3fef219d952376f9c967fcd7280b16368883ddc5c309161f2b40e81aa47006e9  meteor-ops-summary.py
+DEPLOYED 2776d0633391ed1e682048cd6f463549b18006f5e83130ff7f3bb17fd2d7795d  meteor-ops-summary.py

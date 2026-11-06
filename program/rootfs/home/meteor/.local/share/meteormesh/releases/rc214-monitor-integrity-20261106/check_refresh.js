@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync(__dirname+'/monitor/index.html','utf8');
+const elements={};let calls=0;const events={},timeouts=new Map();let id=0;
+const doc={hidden:true,documentElement:{dataset:{}},getElementById(k){return elements[k]||(elements[k]={textContent:'',innerHTML:'',insertAdjacentHTML(_,s){this.innerHTML=s+this.innerHTML}})},querySelectorAll(){return []},addEventListener(k,f){events[k]=f}};
+const c={document:doc,AbortController,Date,Intl,console,localStorage:{getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}},setTimeout(f){timeouts.set(++id,f);return id},clearTimeout(i){timeouts.delete(i)},setInterval(){return ++id},clearInterval(){}};
+vm.createContext(c);vm.runInContext(html.split('<script>')[1].split('</script>')[0],c);
+c.drawNav=()=>{};c.renderData=()=>{doc.getElementById('main').innerHTML='DATA'};
+const state={schema:'meteormesh.monitor.v1',generated_utc:'2026-11-06T09:00:00Z',generated_local:'2026-11-06T12:00:00+03:00',freshness:{state:'CURRENT'},overall:{},phones:[]};
+(async()=>{
+ c.fetch=async()=>{calls++;return {ok:true,json:async()=>state}};
+ await c.load();assert.equal(calls,0);console.log('PASS hidden page no polling');
+ doc.hidden=false;await c.load();assert.equal(c.state.schema,state.schema);console.log('PASS valid response and blocked localStorage');
+ c.fetch=async()=>({ok:false,status:503,json:async()=>state});await c.load();assert(c.connectionLost);assert(doc.getElementById('main').innerHTML.includes('Son bilinen'));console.log('PASS HTTP failure keeps stale banner');
+ c.draw();assert(doc.getElementById('main').innerHTML.includes('Son bilinen'));console.log('PASS tab navigation preserves stale banner');
+ c.fetch=async()=>({ok:true,json:async()=>({schema:'invalid'})});await c.load();assert(c.connectionLost);assert.equal(c.state.schema,state.schema);console.log('PASS malformed API does not replace last data');
+ c.fetch=async()=>({ok:true,json:async()=>state});await c.load();assert(!c.connectionLost);console.log('PASS recovery clears stale state');
+ let release;c.fetch=()=>{calls++;return new Promise(r=>release=r)};const first=c.load(),before=calls;await c.load();assert.equal(calls,before);release({ok:true,json:async()=>state});await first;console.log('PASS only one request in flight');
+ c.fetch=(_,o)=>new Promise((r,j)=>o.signal.addEventListener('abort',()=>j(Error('timeout'))));const pending=c.load();for(const f of [...timeouts.values()])f();await pending;assert(!c.loadPending&&c.connectionLost);console.log('PASS timeout releases request for retry');
+ doc.hidden=true;events.visibilitychange();assert.equal(c.refreshTimer,null);console.log('PASS background stops interval');
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -51,3 +51,8 @@ Enable user lingering with `sudo loginctl enable-linger meteor`. Inspect healthz
 Included MetDetPy checkout commit: see `manifest.json` (`metdet_commit`). Keep its license and attribution. Historical releases are kept because active systemd drop-ins and imports reference multiple release paths. The previous repository's older root `install.sh` is not the installer for this snapshot.
 
 The recovery key is essential for exact configuration/Android recovery. Store an offline copy separately. Losing that key leaves readable G62 source available, but private configuration must be generated and paired again.
+
+
+## RC223 security update
+
+Use the current restore.py and SHA256SUMS. It verifies and applies security-update-rc223.tar.gz after the base archive. The base archive alone is historical. See ../../program/SECURITY_RC223.md for all seven fixes. Phones require the new MeteorNode0.13.7-security1 APK; the G62 patch does not update phones automatically.

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Self-contained vector launcher icon; no device-specific framework icon dependency. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#102A43" android:pathData="M0,0h48v48H0z" />
+    <path android:fillColor="#D9ECFF" android:pathData="M21,20L6,35L13,22L4,26L20,10z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M34,14a8,8 0,1 1,-16,0a8,8 0,1 1,16 0z" />
+    <path android:fillColor="#FFCE54" android:pathData="M30,14a4,4 0,1 1,-8,0a4,4 0,1 1,8 0z" />
+</vector>

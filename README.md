@@ -21,3 +21,8 @@ Data layout on the HP G62:
 
 See [snapshot installation and recovery](snapshots/g62-20261106/INSTALL.md). Contains full G62 software, encrypted configuration/identity recovery, Android sources/APKs and dependency records. Videos and database contents are excluded. Use the snapshot restore.py instead of the older root install.sh. The recovery key is stored separately and is not published.
 
+
+
+## RC223 security corrections
+
+Read [program/SECURITY_RC223.md](program/SECURITY_RC223.md). Corrected G62 hooks/policy and restore tools are active. MeteorNode0.13.7-security1 source and APK are supplied; phone installation remains pending.

@@ -1,0 +1,111 @@
+"""Offline safeguards for MeteorNode source; NOT a substitute for compiling Android APK.
+
+These checks catch accidental privilege and file-lifecycle regressions before
+physical-camera acceptance and Android build-tool availability.
+"""
+
+from pathlib import Path
+import re
+import unittest
+import xml.etree.ElementTree as ET
+
+
+ROOT = Path(__file__).resolve().parent
+JAVA = ROOT / "app/src/main/java/org/meteormesh/node"
+
+
+def source(name):
+    return (JAVA / name).read_text(encoding="utf-8")
+
+
+class SourceContractTests(unittest.TestCase):
+    def test_app_cannot_be_backed_up_or_cleartext_http(self):
+        root = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
+        ns = "{http://schemas.android.com/apk/res/android}"
+        application = root.find("application")
+        self.assertEqual(application.get(ns + "allowBackup"), "false")
+        self.assertEqual(application.get(ns + "usesCleartextTraffic"), "false")
+        self.assertEqual(application.get(ns + "icon"), "@drawable/ic_meteor")
+        self.assertTrue((ROOT / "app/src/main/res/drawable/ic_meteor.xml").is_file())
+        service = application.find("service")
+        self.assertEqual(service.get(ns + "exported"), "false")
+        self.assertEqual(service.get(ns + "foregroundServiceType"), "camera")
+
+    def test_one_store_worker_shared_by_ui_and_service(self):
+        store = source("SegmentStore.kt")
+        ui = source("MainActivity.kt")
+        service = source("MeteorCaptureService.kt")
+        self.assertIn("class SegmentStore private constructor", store)
+        self.assertIn("@Volatile private var singleton: SegmentStore?", store)
+        self.assertIn("context.applicationContext", store)
+        self.assertIn("SegmentStore.get(this)", ui)
+        self.assertIn("SegmentStore.get(this)", service)
+        self.assertNotIn("SegmentStore(this)", ui + service)
+        self.assertEqual(ui.count("SegmentStore.get(this)"), 1)
+
+    def test_ready_metadata_id_is_path_safe(self):
+        store = source("SegmentStore.kt")
+        self.assertIn('Regex("[a-zA-Z0-9_-]{3,100}")', store)
+        self.assertIn("if (!safeSegmentId.matches(id)) return@forEach", store)
+        self.assertIn("if (!safeSegmentId.matches(id)) return null", store)
+        self.assertIn("out.fd.sync()", store)
+        self.assertIn("recoverInterruptedFinalizations()", store)
+
+    def test_http_remains_read_only_and_authenticated(self):
+        server = source("LocalTlsServer.kt")
+        self.assertIn('request[0] != "GET"', server)
+        self.assertIn("MessageDigest.isEqual(", server)
+        self.assertIn("if (!authorized)", server)
+        self.assertIn("parseRange(range, length)", server)
+        self.assertNotRegex(server, re.compile(r'path\s*==\s*"/api/v1/(delete|purge|start|stop)"'))
+
+    def test_alpha_version_and_no_automatic_phone_delete(self):
+        gradle = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
+        service = source("MeteorCaptureService.kt")
+        self.assertIn('versionName = "0.5.0-alpha5"', gradle)
+        self.assertIn('versionCode = 5', gradle)
+        self.assertIn("MIN_FREE_BYTES = 2L * 1024 * 1024 * 1024", service)
+        self.assertIn("SEGMENT_DURATION_MS = 300_000L", service)
+        self.assertIn("STOP_RESTART_GAP_POSSIBLE", source("SegmentStore.kt"))
+
+    def test_no_guess_for_unreported_fps_and_health_version(self):
+        inventory = source("CameraInventory.kt")
+        self.assertNotIn("return 25 to null", inventory)
+        self.assertIn('error("FPS ranges unavailable', inventory)
+        self.assertIn('put("node_version", "0.5")', source("LocalTlsServer.kt"))
+        self.assertIn('label("MeteorNode 0.5"', source("MainActivity.kt"))
+        root = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
+        ns = "{http://schemas.android.com/apk/res/android}"
+        self.assertEqual(root.find("application").get(ns + "label"), "MeteorNode 0.5")
+
+    def test_revoked_camera_permission_is_stopped_before_opening(self):
+        recorder = source("MeteorCaptureService.kt")
+        worker = recorder.split("private fun startSession()", 1)[1].split("private fun recoverCamera", 1)[0]
+        self.assertIn("checkSelfPermission(Manifest.permission.CAMERA)", worker)
+        self.assertIn("Camera permission revoked", worker)
+        self.assertLess(worker.index("checkSelfPermission(Manifest.permission.CAMERA)"),
+                        worker.index("manager.openCamera("))
+
+    def test_backups_and_device_transfer_exclude_private_data(self):
+        root = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
+        ns = "{http://schemas.android.com/apk/res/android}"
+        app = root.find("application")
+        self.assertEqual(app.get(ns + "dataExtractionRules"), "@xml/data_extraction_rules")
+        self.assertEqual(app.get(ns + "fullBackupContent"), "@xml/backup_rules")
+        rules = ET.parse(ROOT / "app/src/main/res/xml/data_extraction_rules.xml").getroot()
+        for mode in ("cloud-backup", "device-transfer"):
+            section = rules.find(mode)
+            self.assertIsNotNone(section)
+            excludes = [(n.get("domain"), n.get("path")) for n in section.findall("exclude")]
+            self.assertIn(("root", "."), excludes)
+        older = ET.parse(ROOT / "app/src/main/res/xml/backup_rules.xml").getroot()
+        self.assertIn(("root", "."), [(n.get("domain"), n.get("path")) for n in older.findall("exclude")])
+
+    def test_pairing_key_first_creation_is_serialized(self):
+        server = source("LocalTlsServer.kt")
+        self.assertIn("@Synchronized fun pairingToken(context: Context)", server)
+        self.assertIn("if (!prefs.edit().putString(\"token\", created).commit())", server)
+
+
+if __name__ == "__main__":
+    unittest.main()
